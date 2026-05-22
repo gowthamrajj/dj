@@ -16,6 +16,11 @@
  * succession is a no-op.
  */
 
+import {
+  parseDataSize,
+  parseDurationMs,
+  parseDurationNanos,
+} from '@shared/trino/parse';
 import type {
   TrinoOperatorSummaryEntry,
   TrinoPersistedQuery,
@@ -25,6 +30,12 @@ import type {
 import { WORKSPACE_ROOT } from 'admin';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Re-export the shared parsers so existing callers that imported them
+// from this module continue to work (the implementations now live in
+// `@shared/trino/parse`, but downstream tests + extension code still
+// pull them through here).
+export { parseDataSize, parseDurationMs };
 
 const DIAGNOSTICS_SUBDIR = path.join('.dj', 'diagnostics');
 const DEFAULT_RETENTION_DAYS = 30;
@@ -172,9 +183,8 @@ export function sanitize(
   const queryStats = stripQueryStats(
     rawQueryInfo.queryStats as Record<string, unknown> | undefined,
   );
-  const rootStage = trimStage(
-    rawQueryInfo.outputStage ?? rawQueryInfo.rootStage,
-  );
+  const stageLookup = buildStageLookup(rawQueryInfo);
+  const rootStage = trimStage(pickRootStage(rawQueryInfo), stageLookup);
   const operatorSummary = flattenAndTrimOperatorSummary(rawQueryInfo);
 
   return {
@@ -236,10 +246,19 @@ export function summarizeQueryInfo(
     peakTotalMemoryBytes: parseDataSize(stats.peakTotalMemoryReservation),
     processedRows: numberOrUndefined(stats.processedInputPositions),
     processedBytes: parseDataSize(stats.processedInputDataSize),
-    totalSplits: numberOrUndefined(stats.totalSplits),
-    completedSplits: numberOrUndefined(stats.completedSplits),
-    queuedSplits: numberOrUndefined(stats.queuedSplits),
-    runningSplits: numberOrUndefined(stats.runningSplits),
+    // Newer Trino builds emit `totalDrivers` / `completedDrivers`
+    // and have dropped `totalSplits` / `completedSplits` from
+    // queryStats. Both names refer to the same scheduling unit, so
+    // fall back to the drivers counters when the split counters are
+    // absent. Same for queued / running.
+    totalSplits: numberOrUndefined(stats.totalSplits ?? stats.totalDrivers),
+    completedSplits: numberOrUndefined(
+      stats.completedSplits ?? stats.completedDrivers,
+    ),
+    queuedSplits: numberOrUndefined(stats.queuedSplits ?? stats.queuedDrivers),
+    runningSplits: numberOrUndefined(
+      stats.runningSplits ?? stats.runningDrivers,
+    ),
     blockedTimeMs: parseDurationMs(stats.totalBlockedTime),
     dataSkewScore,
     largestOperator,
@@ -294,14 +313,98 @@ function stripQueryStats(
 }
 
 /**
+ * Resolve the root stage of a raw QueryInfo across the two shapes
+ * Trino has shipped:
+ *
+ *   - Older builds (≤ 4xx): `outputStage` or `rootStage` directly on
+ *     the root, with `subStages: [...]` for nested children objects.
+ *   - Newer builds: a `stages` envelope `{ outputStageId, stages: [
+ *     stage, … ] }`. The `stages` array is flat — every stage in the
+ *     plan, including the root, sits at the same level. Each stage's
+ *     `subStages` array may carry either nested child objects (some
+ *     versions) or just child `stageId` strings (most newer versions)
+ *     that have to be resolved against the flat list.
+ *
+ * Returns undefined when neither shape is present (e.g. preview rows
+ * that never carry a stage tree).
+ */
+function pickRootStage(raw: Record<string, unknown>): unknown {
+  if (raw.outputStage) {
+    return raw.outputStage;
+  }
+  if (raw.rootStage) {
+    return raw.rootStage;
+  }
+  const envelope = raw.stages as Record<string, unknown> | undefined;
+  const children = envelope?.stages;
+  if (Array.isArray(children) && children.length > 0) {
+    const outputId = envelope?.outputStageId;
+    if (typeof outputId === 'string') {
+      const match = (children as Array<Record<string, unknown>>).find(
+        (s) => s.stageId === outputId,
+      );
+      if (match) {
+        return match;
+      }
+    }
+    return children[0];
+  }
+  return undefined;
+}
+
+/**
+ * Index the flat `raw.stages.stages` array by `stageId` so that the
+ * stage walk can resolve string-id `subStages` references back to the
+ * underlying stage objects. Returns an empty map for the older nested
+ * shape (where children are inline objects and don't need resolving).
+ */
+function buildStageLookup(
+  raw: Record<string, unknown>,
+): Map<string, Record<string, unknown>> {
+  const lookup = new Map<string, Record<string, unknown>>();
+  const envelope = raw.stages as Record<string, unknown> | undefined;
+  const children = envelope?.stages;
+  if (Array.isArray(children)) {
+    for (const stage of children) {
+      if (stage && typeof stage === 'object') {
+        const obj = stage as Record<string, unknown>;
+        if (typeof obj.stageId === 'string') {
+          lookup.set(obj.stageId, obj);
+        }
+      }
+    }
+  }
+  return lookup;
+}
+
+/**
  * Walk the stage tree and emit a trimmed copy: keep stageStats, drop
  * per-driver task detail (just count + per-task scalar stats), recurse.
+ *
+ * `subStages` entries can be either nested stage objects (older Trino)
+ * or string `stageId` references into the flat `raw.stages.stages`
+ * array (newer Trino). The lookup resolves the string case; if a
+ * reference can't be resolved it's silently dropped (rare, but better
+ * than leaking a stray string into the tree). `seen` short-circuits
+ * pathological cycles since the new envelope can technically reference
+ * a stage from more than one parent.
  */
-function trimStage(raw: unknown): TrinoStage | undefined {
+function trimStage(
+  raw: unknown,
+  lookup: Map<string, Record<string, unknown>>,
+  seen: Set<string> = new Set(),
+): TrinoStage | undefined {
   if (!raw || typeof raw !== 'object') {
     return undefined;
   }
   const obj = raw as Record<string, unknown>;
+  const stageId = typeof obj.stageId === 'string' ? obj.stageId : undefined;
+  if (stageId && seen.has(stageId)) {
+    return undefined;
+  }
+  if (stageId) {
+    seen.add(stageId);
+  }
 
   const stats = obj.stageStats as Record<string, unknown> | undefined;
   const trimmedStats = stats ? stripStageStats(stats) : undefined;
@@ -310,12 +413,19 @@ function trimStage(raw: unknown): TrinoStage | undefined {
     : undefined;
   const subStages = Array.isArray(obj.subStages)
     ? (obj.subStages as unknown[])
-        .map(trimStage)
+        .map((child) => {
+          // String entry → resolve via the flat lookup. Object entry →
+          // already a nested stage, walk it directly.
+          if (typeof child === 'string') {
+            return trimStage(lookup.get(child), lookup, seen);
+          }
+          return trimStage(child, lookup, seen);
+        })
         .filter((s): s is TrinoStage => Boolean(s))
     : undefined;
 
   return {
-    stageId: typeof obj.stageId === 'string' ? obj.stageId : undefined,
+    stageId,
     state: typeof obj.state === 'string' ? obj.state : undefined,
     rootStage: typeof obj.rootStage === 'boolean' ? obj.rootStage : undefined,
     stageStats: trimmedStats,
@@ -374,6 +484,24 @@ function trimTaskStats(
   return out;
 }
 
+/**
+ * Sum a list of duration values to nanoseconds, skipping `undefined`
+ * entries. Returns `undefined` when *every* entry is missing so the
+ * downstream "—" placeholder behaves as before.
+ */
+function sumDurationNanos(parts: Array<unknown>): number | undefined {
+  let total = 0;
+  let any = false;
+  for (const part of parts) {
+    const n = parseDurationNanos(part);
+    if (n !== undefined) {
+      total += n;
+      any = true;
+    }
+  }
+  return any ? total : undefined;
+}
+
 function flattenAndTrimOperatorSummary(
   raw: Record<string, unknown>,
 ): TrinoOperatorSummaryEntry[] {
@@ -387,8 +515,23 @@ function flattenAndTrimOperatorSummary(
       outputPositions: numberOrUndefined(op.outputPositions),
       inputDataSize: op.inputDataSize as number | string | undefined,
       outputDataSize: op.outputDataSize as number | string | undefined,
-      cpuNanos: parseDurationNanos(op.totalCpuTime ?? op.cpuTime),
-      blockedWallNanos: parseDurationNanos(op.blockedWall),
+      // Trino operator summaries don't carry a single `totalCpuTime`
+      // field — CPU is split across the three pipeline phases
+      // (`addInputCpu` + `getOutputCpu` + `finishCpu`). Older payloads
+      // occasionally roll the total into `totalCpuTime` / `cpuTime`,
+      // so prefer those when present and fall back to the per-phase
+      // sum. Same shape for blocked wall (`addInputBlocked` /
+      // `getOutputBlocked` / `finishBlocked` on newer Trino).
+      cpuNanos:
+        parseDurationNanos(op.totalCpuTime ?? op.cpuTime) ??
+        sumDurationNanos([op.addInputCpu, op.getOutputCpu, op.finishCpu]),
+      blockedWallNanos:
+        parseDurationNanos(op.blockedWall) ??
+        sumDurationNanos([
+          op.addInputBlocked,
+          op.getOutputBlocked,
+          op.finishBlocked,
+        ]),
       peakMemoryReservation: op.peakUserMemoryReservation as
         | number
         | string
@@ -406,11 +549,20 @@ function collectOperators(
   raw: Record<string, unknown>,
 ): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [];
+  const lookup = buildStageLookup(raw);
+  const seen = new Set<string>();
   function visit(stage: unknown) {
     if (!stage || typeof stage !== 'object') {
       return;
     }
     const obj = stage as Record<string, unknown>;
+    const stageId = typeof obj.stageId === 'string' ? obj.stageId : undefined;
+    if (stageId && seen.has(stageId)) {
+      return;
+    }
+    if (stageId) {
+      seen.add(stageId);
+    }
     const stats = obj.stageStats as Record<string, unknown> | undefined;
     const ops = Array.isArray(stats?.operatorSummaries)
       ? (stats.operatorSummaries as Array<Record<string, unknown>>)
@@ -421,11 +573,30 @@ function collectOperators(
     const subStages = obj.subStages as unknown[] | undefined;
     if (Array.isArray(subStages)) {
       for (const sub of subStages) {
-        visit(sub);
+        // Resolve string-id `subStages` references via the flat
+        // lookup so newer Trino payloads contribute their per-stage
+        // operator summaries.
+        visit(typeof sub === 'string' ? lookup.get(sub) : sub);
       }
     }
   }
-  visit(raw.outputStage ?? raw.rootStage);
+  visit(pickRootStage(raw));
+
+  // Newer Trino builds carry a flat `queryStats.operatorSummaries` in
+  // addition to (or instead of) per-stage summaries. When the stage
+  // walk produces nothing, fall back to the flat list so the Operators
+  // tab + `largestOperator` still populate.
+  if (out.length === 0) {
+    const stats = raw.queryStats as Record<string, unknown> | undefined;
+    const flat = stats?.operatorSummaries;
+    if (Array.isArray(flat)) {
+      for (const op of flat) {
+        if (op && typeof op === 'object') {
+          out.push(op as Record<string, unknown>);
+        }
+      }
+    }
+  }
   return out;
 }
 
@@ -641,90 +812,6 @@ export async function reapOldDiagnostics(
     }
   }
   return removed;
-}
-
-export function parseDurationMs(raw: unknown): number | undefined {
-  if (raw === null || raw === undefined) {
-    return undefined;
-  }
-  if (typeof raw === 'number') {
-    return Math.round(raw);
-  }
-  if (typeof raw !== 'string') {
-    return undefined;
-  }
-  const m = raw.match(/^([\d.]+)\s*(ns|us|ms|s|m|h|d)?$/);
-  if (!m) {
-    return undefined;
-  }
-  const n = parseFloat(m[1]);
-  if (Number.isNaN(n)) {
-    return undefined;
-  }
-  switch (m[2]) {
-    case 'ns':
-      return Math.round(n / 1e6);
-    case 'us':
-      return Math.round(n / 1e3);
-    case 'ms':
-      return Math.round(n);
-    case 's':
-    case undefined:
-      return Math.round(n * 1000);
-    case 'm':
-      return Math.round(n * 60_000);
-    case 'h':
-      return Math.round(n * 3_600_000);
-    case 'd':
-      return Math.round(n * 86_400_000);
-    default:
-      return undefined;
-  }
-}
-
-function parseDurationNanos(raw: unknown): number | undefined {
-  const ms = parseDurationMs(raw);
-  if (ms === undefined) {
-    return undefined;
-  }
-  return ms * 1e6;
-}
-
-export function parseDataSize(raw: unknown): number | undefined {
-  if (raw === null || raw === undefined) {
-    return undefined;
-  }
-  if (typeof raw === 'number') {
-    return Math.round(raw);
-  }
-  if (typeof raw !== 'string') {
-    return undefined;
-  }
-  const m = raw.match(/^([\d.]+)\s*(B|kB|KB|MB|GB|TB|PB)?$/);
-  if (!m) {
-    return undefined;
-  }
-  const n = parseFloat(m[1]);
-  if (Number.isNaN(n)) {
-    return undefined;
-  }
-  const unit = (m[2] ?? 'B').toUpperCase();
-  switch (unit) {
-    case 'B':
-      return Math.round(n);
-    case 'KB':
-      return Math.round(n * 1024);
-    case 'MB':
-      return Math.round(n * 1024 ** 2);
-    case 'GB':
-      return Math.round(n * 1024 ** 3);
-    case 'TB':
-      return Math.round(n * 1024 ** 4);
-    case 'PB':
-      return Math.round(n * 1024 ** 5);
-    default:
-      return undefined;
-  }
 }
 
 function numberOrUndefined(raw: unknown): number | undefined {

@@ -144,6 +144,12 @@ export class Trino implements ApiEnabledService<'trino'> {
             'diagnostics',
             `${queryId}.json`,
           );
+          const fullDiagnosticsPath = path.join(
+            WORKSPACE_ROOT,
+            '.dj',
+            'diagnostics',
+            `${queryId}.full.json`,
+          );
           // Persisted-first (default): the detail pane sends `prefer:
           // 'persisted'` on every row click and only flips to `'rest'`
           // when the user clicks "Refresh from coordinator" or
@@ -161,6 +167,14 @@ export class Trino implements ApiEnabledService<'trino'> {
                 ),
                 loadedFrom: 'persisted' as const,
                 jsonPath: diagnosticsPath,
+                // The raw coordinator snapshot is written alongside the
+                // sanitized JSON by `sanitizeAndPersist`. Surface its
+                // path only when the file actually exists on disk —
+                // older diagnostics created before the full snapshot
+                // was added (or hand-edited setups) may not have one.
+                fullJsonPath: fs.existsSync(fullDiagnosticsPath)
+                  ? fullDiagnosticsPath
+                  : undefined,
               };
               return apiResponse<typeof payload.type>(info);
             }
@@ -194,6 +208,9 @@ export class Trino implements ApiEnabledService<'trino'> {
           info.loadedFrom = 'rest';
           if (persisted) {
             info.jsonPath = persisted.jsonPath;
+            if (fs.existsSync(persisted.fullJsonPath)) {
+              info.fullJsonPath = persisted.fullJsonPath;
+            }
           }
           // Stamp the active profile onto the response too. For
           // persisted-then-refreshed snapshots the sanitized JSON

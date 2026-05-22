@@ -60,7 +60,7 @@ export function QueryFilterBar({
   const showProfile = onProfileFilterChange !== undefined && profileOptions;
 
   return (
-    <div className="p-2 flex flex-col gap-2 border-b border-neutral">
+    <div className="pb-2 flex flex-col gap-2 border-b border-neutral">
       <div className="flex gap-2 items-center">
         <div className="flex-1">
           <InputText

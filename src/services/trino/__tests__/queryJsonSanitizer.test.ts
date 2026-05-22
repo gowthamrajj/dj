@@ -155,6 +155,202 @@ describe('summarizeQueryInfo', () => {
   });
 });
 
+/**
+ * Build a fixture matching the newer Trino stage shape: no
+ * `outputStage` / `rootStage`, instead a `stages` envelope with the
+ * root identified by `outputStageId` and children in a `stages` array.
+ * Also exercises the `totalDrivers` / `completedDrivers` counters and a
+ * flat `queryStats.operatorSummaries` list (instead of per-stage).
+ */
+function makeNewShapeQueryInfo(overrides: Record<string, unknown> = {}) {
+  return {
+    queryId: '20260515_182811_09678_vd3zk',
+    state: 'FINISHED',
+    session: { user: 'tester', source: 'trino-js-client' },
+    queryStats: {
+      createTime: '2026-05-15T18:28:11Z',
+      executionStartTime: '2026-05-15T18:28:11Z',
+      endTime: '2026-05-15T18:33:11Z',
+      totalCpuTime: '1.04h',
+      elapsedTime: '5.01m',
+      queuedTime: '0.50s',
+      totalBlockedTime: '4.28d',
+      peakUserMemoryReservation: '19755869049B',
+      processedInputPositions: 1_683_119_817,
+      processedInputDataSize: '1920805930523B',
+      totalDrivers: 8441,
+      completedDrivers: 8441,
+      queuedDrivers: 0,
+      runningDrivers: 0,
+      operatorSummaries: [
+        {
+          operatorType: 'ExchangeOperator',
+          peakUserMemoryReservation: '72B',
+        },
+        {
+          operatorType: 'LookupJoinOperator',
+          peakUserMemoryReservation: '600MB',
+        },
+      ],
+    },
+    query: 'select 1',
+    stages: {
+      outputStageId: 'stage_0',
+      stages: [
+        {
+          stageId: 'stage_0',
+          state: 'FINISHED',
+          stageStats: { totalCpuTime: '20s' },
+          subStages: [
+            {
+              stageId: 'stage_1',
+              state: 'FINISHED',
+              stageStats: { totalCpuTime: '10s' },
+            },
+          ],
+        },
+        {
+          stageId: 'stage_1',
+          state: 'FINISHED',
+          stageStats: { totalCpuTime: '10s' },
+        },
+      ],
+    },
+    ...overrides,
+  };
+}
+
+describe('summarizeQueryInfo (newer Trino shape)', () => {
+  it('falls back to totalDrivers / completedDrivers when totalSplits is absent', () => {
+    const s = summarizeQueryInfo(makeNewShapeQueryInfo());
+    expect(s.totalSplits).toBe(8441);
+    expect(s.completedSplits).toBe(8441);
+    expect(s.queuedSplits).toBe(0);
+    expect(s.runningSplits).toBe(0);
+  });
+
+  it('reports largestOperator from the flat queryStats.operatorSummaries when per-stage list is empty', () => {
+    const s = summarizeQueryInfo(makeNewShapeQueryInfo());
+    expect(s.largestOperator).toBe('LookupJoinOperator');
+  });
+});
+
+describe('sanitize (newer Trino shape)', () => {
+  it('picks the root stage from the new stages envelope', () => {
+    const s = sanitize(makeNewShapeQueryInfo());
+    expect(s.rootStage).toBeDefined();
+    expect(s.rootStage?.stageId).toBe('stage_0');
+    expect(s.rootStage?.subStages?.length).toBe(1);
+    expect(s.rootStage?.subStages?.[0].stageId).toBe('stage_1');
+  });
+
+  it('falls back to stages[0] when outputStageId is missing', () => {
+    const raw = makeNewShapeQueryInfo({
+      stages: {
+        stages: [
+          { stageId: 'stage_alpha', state: 'FINISHED' },
+          { stageId: 'stage_beta', state: 'FINISHED' },
+        ],
+      },
+    });
+    const s = sanitize(raw);
+    expect(s.rootStage?.stageId).toBe('stage_alpha');
+  });
+
+  it('emits operatorSummary from queryStats.operatorSummaries when per-stage list is empty', () => {
+    const s = sanitize(makeNewShapeQueryInfo());
+    expect(s.operatorSummary?.length).toBe(2);
+    expect(s.operatorSummary?.[0].operatorType).toBe('ExchangeOperator');
+  });
+
+  it('sums addInputCpu + getOutputCpu + finishCpu when totalCpuTime is absent', () => {
+    // Newer Trino operator summaries split CPU across the three
+    // pipeline phases — there's no single `totalCpuTime` to read.
+    const raw = makeNewShapeQueryInfo({
+      queryStats: {
+        ...(makeNewShapeQueryInfo().queryStats as Record<string, unknown>),
+        operatorSummaries: [
+          {
+            operatorType: 'LookupJoinOperator',
+            addInputCpu: '2.00s',
+            getOutputCpu: '500ms',
+            finishCpu: '500ms',
+            blockedWall: '1.00s',
+            peakUserMemoryReservation: '600MB',
+          },
+          {
+            operatorType: 'TableScanOperator',
+            // Missing per-phase fields entirely — should yield
+            // undefined (placeholder rendered).
+            peakUserMemoryReservation: '120MB',
+          },
+        ],
+      },
+    });
+    const s = sanitize(raw);
+    expect(s.operatorSummary?.[0].cpuNanos).toBe(3_000_000_000);
+    expect(s.operatorSummary?.[0].blockedWallNanos).toBe(1_000_000_000);
+    expect(s.operatorSummary?.[1].cpuNanos).toBeUndefined();
+  });
+
+  it('resolves string-id subStages references against the flat stages array', () => {
+    // Most newer Trino builds emit `subStages` as an array of stage
+    // IDs (strings) and store every stage flat under
+    // `raw.stages.stages`. The tree has to be reconstructed by
+    // resolving each id against the flat list.
+    const raw = makeNewShapeQueryInfo({
+      stages: {
+        outputStageId: 'stage_0',
+        stages: [
+          {
+            stageId: 'stage_0',
+            state: 'FINISHED',
+            stageStats: {
+              totalCpuTime: '20s',
+              operatorSummaries: [{ operatorType: 'OutputOperator' }],
+            },
+            subStages: ['stage_1', 'stage_2'],
+          },
+          {
+            stageId: 'stage_1',
+            state: 'FINISHED',
+            stageStats: {
+              totalCpuTime: '10s',
+              operatorSummaries: [{ operatorType: 'ScanFilterOperator' }],
+            },
+            subStages: ['stage_3'],
+          },
+          {
+            stageId: 'stage_2',
+            state: 'FINISHED',
+            stageStats: { totalCpuTime: '5s' },
+            subStages: [],
+          },
+          {
+            stageId: 'stage_3',
+            state: 'FINISHED',
+            stageStats: { totalCpuTime: '2s' },
+            subStages: [],
+          },
+        ],
+      },
+    });
+    const s = sanitize(raw);
+    expect(s.rootStage?.stageId).toBe('stage_0');
+    expect(s.rootStage?.subStages?.map((c) => c.stageId)).toEqual([
+      'stage_1',
+      'stage_2',
+    ]);
+    expect(s.rootStage?.subStages?.[0].subStages?.[0].stageId).toBe('stage_3');
+    // collectOperators should now find the per-stage operators along
+    // the resolved tree; the largestOperator metric is computed from
+    // them in summarizeQueryInfo.
+    expect(
+      s.operatorSummary?.some((o) => o.operatorType === 'ScanFilterOperator'),
+    ).toBe(true);
+  });
+});
+
 describe('sanitize', () => {
   it('drops stageGcStatistics and per-driver task detail', () => {
     const s = sanitize(makeRawQueryInfo());

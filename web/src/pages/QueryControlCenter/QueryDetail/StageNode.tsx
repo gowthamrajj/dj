@@ -1,3 +1,4 @@
+import { parseDurationMs } from '@shared/trino/parse';
 import type { TrinoStage } from '@shared/trino/types';
 import { Button } from '@web/elements';
 import { useState } from 'react';
@@ -17,11 +18,19 @@ type Picked = {
 /**
  * Normalises the heterogeneous `stageStats` Trino sends back into a
  * small predictable shape for the row UI. Trino reports time fields
- * as either `*Time` (Duration string like `"1.23s"`) or `*TimeMillis`
- * (raw ms number) depending on coordinator version — we prefer the
- * numeric variant when present and fall through to the string for
- * display. Byte fields are intentionally left as `number | string`
- * because Trino frequently returns human-readable sizes.
+ * in three forms depending on the coordinator version:
+ *
+ *   - Numeric milliseconds on `*TimeMillis` keys.
+ *   - Numeric milliseconds on the bare `*Time` key.
+ *   - Human-readable duration strings on the bare `*Time` key
+ *     (e.g. `"1.23s"`, `"40m 31s"`), which is what newer Trino
+ *     builds emit.
+ *
+ * `parseDurationMs` from `@shared/trino/parse` handles all three
+ * uniformly, so the row renders CPU / Scheduled / Blocked numbers
+ * across every coordinator we've seen. Byte fields are left as
+ * `number | string` because the downstream `formatBytes` helper
+ * already handles the heterogeneous shape.
  */
 function pickStageStats(stats: Record<string, unknown> | undefined): Picked {
   if (!stats) return {};
@@ -31,20 +40,12 @@ function pickStageStats(stats: Record<string, unknown> | undefined): Picked {
     const n = typeof v === 'number' ? v : Number(v);
     return Number.isNaN(n) ? undefined : n;
   };
-  const cpu = get('totalCpuTime');
-  const blocked = get('totalBlockedTime');
-  const sched = get('totalScheduledTime');
+  const durationMs = (key: string): number | undefined =>
+    parseDurationMs(get(key)) ?? asNumber(get(`${key}Millis`));
   return {
-    totalCpuTimeMs:
-      typeof cpu === 'number' ? cpu : asNumber(get('totalCpuTimeMillis')),
-    totalScheduledTimeMs:
-      typeof sched === 'number'
-        ? sched
-        : asNumber(get('totalScheduledTimeMillis')),
-    totalBlockedTimeMs:
-      typeof blocked === 'number'
-        ? blocked
-        : asNumber(get('totalBlockedTimeMillis')),
+    totalCpuTimeMs: durationMs('totalCpuTime'),
+    totalScheduledTimeMs: durationMs('totalScheduledTime'),
+    totalBlockedTimeMs: durationMs('totalBlockedTime'),
     peakMemoryBytes: get('peakMemoryReservation') as
       | number
       | string

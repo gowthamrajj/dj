@@ -131,6 +131,16 @@ export type TrinoQueryInfo = {
    */
   jsonPath?: string;
   /**
+   * Absolute path to the raw `<queryId>.full.json` coordinator
+   * snapshot saved beside the sanitized JSON. The full file is the
+   * unfiltered `/v1/query/{id}` response (typically multi-MB) and is
+   * useful when the sanitized summary isn't enough — e.g. when an AI
+   * agent needs the full execution plan or per-driver task detail.
+   * Set whenever both files exist on disk; the backend guards the
+   * field with a `fs.existsSync` check before emitting it.
+   */
+  fullJsonPath?: string;
+  /**
    * Profile + coordinator URL of the cluster this snapshot was
    * captured against. Always set for REST snapshots; set on persisted
    * snapshots when the on-disk JSON records them. Both fields may be

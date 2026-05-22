@@ -3,7 +3,13 @@ import DataSearchIcon from '@web/assets/icons/data-search.svg?react';
 import { useApp } from '@web/context';
 import { Alert, Button, SlimBanner, Spinner, Tab } from '@web/elements';
 import { useError } from '@web/hooks';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import type { SelectedQuery } from '../types';
 import { useTrinoLive } from '../useTrinoLive';
@@ -67,20 +73,29 @@ export function QueryDetail({ selected }: QueryDetailProps) {
   const effectiveSql = info?.query ?? selected?.summary?.query;
 
   const progressPercent = useMemo<number | null>(() => {
-    if (!effectiveSummary) return null;
-    if (TERMINAL_STATES.has(effectiveSummary.state)) return null;
+    if (!effectiveSummary) {
+      return null;
+    }
+    if (TERMINAL_STATES.has(effectiveSummary.state)) {
+      return null;
+    }
+    // Summary mode reads from `system.runtime.queries`, which doesn't
+    // expose split / driver counters. Anything we'd show before
+    // `Load full details` would be a placeholder that contradicts
+    // the real value once the REST snapshot lands, so hide it
+    // entirely until `info` is in hand.
+    if (!info) {
+      return null;
+    }
     if (!effectiveSummary.totalSplits) {
-      if (effectiveSummary.state === 'QUEUED') return 10;
-      // PLANNING / STARTING — show something before splits exist so
-      // the bar doesn't appear completely empty.
-      return 25;
+      return null;
     }
     const done = effectiveSummary.completedSplits ?? 0;
     return Math.min(
       100,
-      10 + Math.round((90 * done) / effectiveSummary.totalSplits),
+      Math.round((100 * done) / effectiveSummary.totalSplits),
     );
-  }, [effectiveSummary]);
+  }, [effectiveSummary, info]);
 
   const load = useCallback(
     async (id: string, prefer: 'persisted' | 'rest' = 'persisted') => {
@@ -118,14 +133,18 @@ export function QueryDetail({ selected }: QueryDetailProps) {
     clearError();
     setLastAnalysis(null);
     setPromptOpen(false);
-    if (!selected) return;
+    if (!selected) {
+      return;
+    }
     if (selected.source === 'history' || selected.source === 'preselect') {
       void load(selected.queryId, 'persisted');
     }
   }, [selected, load, clearError]);
 
   async function handleAnalyze() {
-    if (!queryId) return;
+    if (!queryId) {
+      return;
+    }
     try {
       setAnalyzing(true);
       const res = await api.post({
@@ -156,7 +175,9 @@ export function QueryDetail({ selected }: QueryDetailProps) {
   }
 
   async function handleJumpToModel() {
-    if (!queryId) return;
+    if (!queryId) {
+      return;
+    }
     try {
       await api.post({
         type: 'trino-jump-to-model-from-query',
@@ -192,45 +213,24 @@ export function QueryDetail({ selected }: QueryDetailProps) {
   // Mode is derived purely from whether a full snapshot is in hand.
   const isSummaryMode = !info;
 
-  const loadedFromLabel =
-    info?.loadedFrom === 'persisted'
-      ? 'Loaded from .dj/diagnostics (may be stale)'
-      : info?.loadedFrom === 'rest'
-        ? 'Loaded from coordinator'
-        : null;
+  // "Refresh" makes sense whenever the snapshot in hand is still
+  // non-terminal — the coordinator may have newer data for the same
+  // queryId, regardless of whether the user reached this view via
+  // Live or History. Terminal queries are skipped because re-fetching
+  // returns identical bytes (or 410 if it has aged out).
+  const showRefresh = !!info && !TERMINAL_STATES.has(effectiveSummary.state);
 
-  // "Refresh from coordinator" only makes sense once we have a REST
-  // snapshot and the query is still alive at the coordinator.
-  // Persisted snapshots and terminal queries skip it.
-  const showRefresh =
-    !!info &&
-    info.loadedFrom === 'rest' &&
-    !TERMINAL_STATES.has(effectiveSummary.state);
-
-  const actions = isSummaryMode ? (
-    <>
-      <Button
-        variant="primary"
-        label="Load full details"
-        onClick={() => void load(selected.queryId, 'rest')}
-      />
-      <Button
-        variant="outlineIconButton"
-        className="text-sm"
-        label="Analyze with AI"
-        loading={analyzing}
-        onClick={() => void handleAnalyze()}
-      />
-    </>
-  ) : (
-    <>
-      <Button
-        variant="primary"
-        label="Analyze with AI"
-        loading={analyzing}
-        onClick={() => void handleAnalyze()}
-      />
+  // Single right-anchored row with a fixed slot order so the primary
+  // CTA (rightmost) never shifts position as conditional buttons come
+  // and go. From left to right:
+  //   Jump to Model · Refresh · Copy AI Prompt · Load full details
+  // Buttons that don't apply to the current snapshot are simply not
+  // rendered; rightmost neighbours fill the space without re-ordering.
+  const actionParts: ReactNode[] = [];
+  if (!isSummaryMode) {
+    actionParts.push(
       <span
+        key="jump"
         title={
           info?.modelMatch
             ? `Open ${info.modelMatch.project}:${info.modelMatch.modelName}`
@@ -244,25 +244,54 @@ export function QueryDetail({ selected }: QueryDetailProps) {
           disabled={!info?.modelMatch}
           onClick={() => void handleJumpToModel()}
         />
-      </span>
-      {showRefresh && (
+      </span>,
+    );
+  }
+  if (showRefresh) {
+    actionParts.push(
+      <span
+        key="refresh"
+        title="Refresh from coordinator — fetches the latest /v1/query/{id} snapshot and rewrites the sanitized JSON."
+      >
         <Button
           variant="outlineIconButton"
           className="text-sm"
-          label="Refresh from coordinator"
+          label="Refresh"
           onClick={() => void load(selected.queryId, 'rest')}
         />
-      )}
-    </>
+      </span>,
+    );
+  }
+  actionParts.push(
+    <Button
+      key="copy-prompt"
+      variant={isSummaryMode ? 'outlineIconButton' : 'primary'}
+      className={isSummaryMode ? 'text-sm' : undefined}
+      label="Copy AI Prompt"
+      loading={analyzing}
+      onClick={() => void handleAnalyze()}
+    />,
   );
+  if (isSummaryMode) {
+    actionParts.push(
+      <Button
+        key="load-full"
+        variant="primary"
+        label="Load full details"
+        onClick={() => void load(selected.queryId, 'rest')}
+      />,
+    );
+  }
+  const actions = <>{actionParts}</>;
 
   // Mutually-exclusive banner slot. Order matters: loading wins over
   // the preview banner, the preview banner wins over success banners,
   // and the error Alert sits underneath whichever is active so the
   // user always sees both the current snapshot state and why the most
-  // recent action failed.
+  // recent action failed. The wrapper uses a tight `gap-1` so stacked
+  // banners stay visually grouped without pushing the stats grid down.
   const bannerSlot = (
-    <>
+    <div className="flex flex-col gap-1">
       {loading && (
         <SlimBanner variant="info">
           <span className="inline-flex items-center gap-2">
@@ -272,11 +301,10 @@ export function QueryDetail({ selected }: QueryDetailProps) {
         </SlimBanner>
       )}
       {!loading && isSummaryMode && !error && (
-        <Alert
-          variant="info"
-          label="Preview"
-          description="This is a preview of the selected query. Click Load full details to fetch the execution plan, operator table, and data-skew score from the coordinator."
-        />
+        <SlimBanner variant="info">
+          Preview only. Click <strong>Load full details</strong> to fetch the
+          execution plan, operator table, and stage tree from the coordinator.
+        </SlimBanner>
       )}
       {!loading && !isSummaryMode && info?.jsonPath && (
         <SlimBanner
@@ -285,7 +313,7 @@ export function QueryDetail({ selected }: QueryDetailProps) {
             <Button
               variant="secondary"
               label="Copy path"
-              title="Copy the absolute path to the clipboard"
+              title="Copy the sanitized JSON path to the clipboard"
               onClick={() =>
                 void navigator.clipboard.writeText(info.jsonPath ?? '')
               }
@@ -296,9 +324,29 @@ export function QueryDetail({ selected }: QueryDetailProps) {
           <code className="font-mono break-all">{info.jsonPath}</code>
         </SlimBanner>
       )}
-      {!loading && lastAnalysis && (
+      {!loading && !isSummaryMode && info?.fullJsonPath && (
         <SlimBanner
           variant="info"
+          actions={
+            <Button
+              variant="secondary"
+              label="Copy path"
+              title="Copy the full coordinator snapshot path to the clipboard"
+              onClick={() =>
+                void navigator.clipboard.writeText(info.fullJsonPath ?? '')
+              }
+            />
+          }
+        >
+          <span className="opacity-90">
+            Full coordinator snapshot (large, raw):
+          </span>{' '}
+          <code className="font-mono break-all">{info.fullJsonPath}</code>
+        </SlimBanner>
+      )}
+      {!loading && lastAnalysis && (
+        <SlimBanner
+          variant="success"
           actions={
             <>
               <Button
@@ -316,8 +364,9 @@ export function QueryDetail({ selected }: QueryDetailProps) {
             </>
           }
         >
-          AI prompt copied to clipboard. Paste this into your AI agent with the{' '}
-          <code>dj-trino-analyzer</code> skill loaded.
+          AI prompt copied to your clipboard. Paste it into your AI agent with
+          the <code>dj-trino-analyzer</code> skill loaded — the prompt
+          references the sanitized JSON above.
         </SlimBanner>
       )}
       {lastAnalysis && promptOpen && (
@@ -332,7 +381,7 @@ export function QueryDetail({ selected }: QueryDetailProps) {
           variant="error"
         />
       )}
-    </>
+    </div>
   );
 
   // Tabs: always show Overview. Add Stages / Operators / Errors as
@@ -353,7 +402,11 @@ export function QueryDetail({ selected }: QueryDetailProps) {
     tabs.push('Stages');
     panels.push(<StageTree key="stages" stage={info.rootStage} />);
   }
-  if (info?.operatorSummary) {
+  // Length check (not just truthy) — the sanitizer can emit an empty
+  // operatorSummary array on Trino versions that ship the field but
+  // populate it elsewhere. An empty tab with "no operator data" is
+  // noise; only show the tab when there's content.
+  if (info?.operatorSummary && info.operatorSummary.length > 0) {
     tabs.push('Operators');
     panels.push(
       <OperatorTable key="operators" operators={info.operatorSummary} />,
@@ -368,15 +421,8 @@ export function QueryDetail({ selected }: QueryDetailProps) {
     <div className="p-3 flex flex-col gap-3 h-full min-h-0">
       <QueryInfoCard
         summary={effectiveSummary}
-        loadedFromLabel={loadedFromLabel}
         profileName={info?.profileName}
-        coordinatorUrl={info?.coordinatorUrl}
         progressPercent={progressPercent}
-        progressCaption={
-          effectiveSummary.totalSplits
-            ? `${effectiveSummary.completedSplits ?? 0} / ${effectiveSummary.totalSplits} splits`
-            : undefined
-        }
         bannerSlot={bannerSlot}
         actions={actions}
       />

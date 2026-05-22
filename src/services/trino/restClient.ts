@@ -15,6 +15,11 @@
 import type { DJLogger } from '@services/djLogger';
 import { resolveProfileSecret } from '@services/trino/profiles';
 import { summarizeQueryInfo } from '@services/trino/queryJsonSanitizer';
+import {
+  parseDataSize,
+  parseDurationMs,
+  parseDurationNanos,
+} from '@shared/trino/parse';
 import type {
   TrinoCoordinatorPing,
   TrinoOperatorSummaryEntry,
@@ -23,6 +28,11 @@ import type {
   TrinoQuerySummary,
   TrinoStage,
 } from '@shared/trino/types';
+
+// Re-export the shared parsers so the existing `restClient.test.ts`
+// imports stay valid. New code should reach for `@shared/trino/parse`
+// directly.
+export { parseDataSize, parseDurationMs };
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'url';
@@ -449,99 +459,6 @@ function flattenOperatorSummary(
   }
   visit(raw.outputStage ?? raw.rootStage);
   return out;
-}
-
-/**
- * Parse a Trino duration string like "12.34s" / "10ms" / "1.2h" into
- * milliseconds. Trino returns durations either as strings or as numeric
- * nanoseconds depending on the endpoint.
- */
-export function parseDurationMs(raw: unknown): number | undefined {
-  if (raw === null || raw === undefined) {
-    return undefined;
-  }
-  if (typeof raw === 'number') {
-    return Math.round(raw);
-  }
-  if (typeof raw !== 'string') {
-    return undefined;
-  }
-  const m = raw.match(/^([\d.]+)\s*(ns|us|ms|s|m|h|d)?$/);
-  if (!m) {
-    return undefined;
-  }
-  const n = parseFloat(m[1]);
-  if (Number.isNaN(n)) {
-    return undefined;
-  }
-  switch (m[2]) {
-    case 'ns':
-      return Math.round(n / 1e6);
-    case 'us':
-      return Math.round(n / 1e3);
-    case 'ms':
-      return Math.round(n);
-    case 's':
-    case undefined:
-      return Math.round(n * 1000);
-    case 'm':
-      return Math.round(n * 60_000);
-    case 'h':
-      return Math.round(n * 3_600_000);
-    case 'd':
-      return Math.round(n * 86_400_000);
-    default:
-      return undefined;
-  }
-}
-
-function parseDurationNanos(raw: unknown): number | undefined {
-  const ms = parseDurationMs(raw);
-  if (ms === undefined) {
-    return undefined;
-  }
-  return ms * 1e6;
-}
-
-/**
- * Parse a Trino data-size string like "12.3MB" / "1.5GB" into bytes.
- * Pass-through for numeric inputs.
- */
-export function parseDataSize(raw: unknown): number | undefined {
-  if (raw === null || raw === undefined) {
-    return undefined;
-  }
-  if (typeof raw === 'number') {
-    return Math.round(raw);
-  }
-  if (typeof raw !== 'string') {
-    return undefined;
-  }
-  const m = raw.match(/^([\d.]+)\s*(B|kB|KB|MB|GB|TB|PB)?$/);
-  if (!m) {
-    return undefined;
-  }
-  const n = parseFloat(m[1]);
-  if (Number.isNaN(n)) {
-    return undefined;
-  }
-  const unit = (m[2] ?? 'B').toUpperCase();
-  switch (unit) {
-    case 'B':
-      return Math.round(n);
-    case 'KB':
-      return Math.round(n * 1024);
-    case 'MB':
-      return Math.round(n * 1024 ** 2);
-    case 'GB':
-      return Math.round(n * 1024 ** 3);
-    case 'TB':
-      return Math.round(n * 1024 ** 4);
-    case 'PB':
-      return Math.round(n * 1024 ** 5);
-    default:
-      return undefined;
-  }
 }
 
 function numberOrUndefined(raw: unknown): number | undefined {

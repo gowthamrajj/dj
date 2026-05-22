@@ -28,7 +28,7 @@ export function SlimBanner({ variant, children, actions }: SlimBannerProps) {
         : CheckCircleIcon;
   return (
     <div
-      className={`flex items-center justify-between gap-3 px-3 py-2 rounded bg-${variant} text-${variant}-contrast`}
+      className={`flex items-center justify-between gap-3 px-3 py-1.5 rounded bg-${variant} text-${variant}-contrast`}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />

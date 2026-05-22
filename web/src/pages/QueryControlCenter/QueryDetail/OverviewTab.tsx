@@ -20,9 +20,9 @@ export function OverviewTab({ summary, sql, modelMatch }: OverviewTabProps) {
       <MetadataCard
         summary={summary}
         modelMatch={modelMatch}
-        className="md:w-64 shrink-0"
+        className="md:w-72 shrink-0"
       />
-      <QuerySqlCard sql={sql} className="flex-1 min-h-0 overflow-auto" />
+      <QuerySqlCard sql={sql} className="flex-1 min-h-0" />
     </div>
   );
 }

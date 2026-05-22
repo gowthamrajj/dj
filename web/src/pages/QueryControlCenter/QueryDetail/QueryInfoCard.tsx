@@ -1,17 +1,20 @@
 import { ClipboardIcon } from '@heroicons/react/20/solid';
 import type { TrinoQuerySummary } from '@shared/trino/types';
-import { Button, Progress } from '@web/elements';
+import { Button } from '@web/elements';
 
-import { ProfileChip } from './ProfileChip';
 import { StatsGrid } from './StatsGrid';
 
 export type QueryInfoCardProps = {
   summary: TrinoQuerySummary;
-  loadedFromLabel?: string | null;
+  /** Profile this snapshot was captured against. Renders the chip
+   *  inline with the Query ID when set. */
   profileName?: string;
-  coordinatorUrl?: string;
+  /**
+   * Live progress percent (0-100). Threaded into the State card on
+   * the stats grid so the standalone progress bar can be retired.
+   * `null` while in summary mode or for terminal queries.
+   */
   progressPercent?: number | null;
-  progressCaption?: string;
   bannerSlot?: React.ReactNode;
   actions?: React.ReactNode;
 };
@@ -19,18 +22,16 @@ export type QueryInfoCardProps = {
 /**
  * Top "Query Info" card. Identical between summary-only and full-info
  * modes; only the `bannerSlot` and `actions` differ. The header
- * carries the identifying facts (Query ID, snapshot source, profile)
- * so they stay visible regardless of which tab is active below. The
- * DJ model match lives in the Overview tab's Metadata card alongside
- * the rest of the query's identifying fields.
+ * carries the identifying facts (Query ID + profile chip) so they
+ * stay visible regardless of which tab is active below. The DJ model
+ * match and the snapshot source (coordinator / .dj/diagnostics) live
+ * elsewhere — model match inside the Overview tab's Metadata card,
+ * snapshot source in the banner row directly under the header.
  */
 export function QueryInfoCard({
   summary,
-  loadedFromLabel,
   profileName,
-  coordinatorUrl,
   progressPercent,
-  progressCaption,
   bannerSlot,
   actions,
 }: QueryInfoCardProps) {
@@ -39,7 +40,7 @@ export function QueryInfoCard({
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-1 min-w-0">
           <h2 className="text-lg font-semibold m-0">Query Info</h2>
-          <div className="flex items-center gap-1 text-xs opacity-70 min-w-0">
+          <div className="flex items-center gap-1.5 text-xs opacity-70 min-w-0 flex-wrap">
             <span>ID:</span>
             <code className="font-mono break-all">{summary.queryId}</code>
             <Button
@@ -53,25 +54,25 @@ export function QueryInfoCard({
                 void navigator.clipboard.writeText(summary.queryId)
               }
             />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {loadedFromLabel && (
-              <span className="text-xs opacity-70">{loadedFromLabel}</span>
-            )}
             {profileName && (
-              <ProfileChip name={profileName} url={coordinatorUrl} />
+              // Inlined chip — the previous standalone `ProfileChip`
+              // component had a single use site once the optional
+              // coordinator URL was dropped, so the markup lives here.
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded border border-neutral text-xs font-semibold"
+                title={`Captured from profile "${profileName}"`}
+              >
+                {profileName}
+              </span>
             )}
           </div>
         </div>
         {actions && (
-          <div className="flex gap-2 flex-wrap shrink-0">{actions}</div>
+          <div className="flex gap-2 flex-wrap ml-auto shrink-0">{actions}</div>
         )}
       </div>
       {bannerSlot}
-      {typeof progressPercent === 'number' && (
-        <Progress percent={progressPercent} caption={progressCaption} />
-      )}
-      <StatsGrid summary={summary} />
+      <StatsGrid summary={summary} progressPercent={progressPercent} />
     </div>
   );
 }
