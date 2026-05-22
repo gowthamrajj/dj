@@ -1,4 +1,8 @@
-import { MoonIcon, SunIcon } from '@heroicons/react/24/outline';
+import {
+  ClipboardDocumentIcon,
+  MoonIcon,
+  SunIcon,
+} from '@heroicons/react/24/outline';
 import { sqlFormat } from '@shared/sql/utils';
 import { makeClassName } from '@web';
 import { Button, CodeBlock, Text } from '@web/elements';
@@ -25,10 +29,13 @@ export type QuerySqlCardProps = {
  * override resets whenever VS Code itself toggles theme, matching
  * the behaviour of the Model Preview toggle.
  *
- * The "Query SQL" heading + theme toggle + Copy SQL button live in
+ * The "Query SQL" heading + theme toggle + Copy SQL action live in
  * a sticky header row so the actions stay reachable as the SQL body
- * scrolls. The single-thickness `border-neutral` matches
- * `QueryInfoCard` for dark-mode parity.
+ * scrolls. Both actions are icon-only (`p-1`) so the header collapses
+ * to the same height as the sibling `MetadataCard` heading — the
+ * Overview tab reads as a balanced two-column layout. The
+ * single-thickness `border-neutral` matches `QueryInfoCard` for
+ * dark-mode parity.
  */
 export function QuerySqlCard({ sql, className }: QuerySqlCardProps) {
   // The card starts in the VS Code theme but the user can flip to
@@ -61,9 +68,10 @@ export function QuerySqlCard({ sql, className }: QuerySqlCardProps) {
     >
       <div className="sticky top-0 z-10 bg-background px-3 pt-2 pb-2 border-b border-neutral flex items-center justify-between gap-2">
         <Text variant="label">Query SQL</Text>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button
             variant="iconButton"
+            className="p-1"
             title={`Switch SQL preview to ${theme === 'light' ? 'dark' : 'light'} theme`}
             icon={
               theme === 'light' ? (
@@ -77,9 +85,11 @@ export function QuerySqlCard({ sql, className }: QuerySqlCardProps) {
             }
           />
           <Button
-            variant="secondary"
-            label="Copy SQL"
+            variant="iconButton"
+            className="p-1"
+            title="Copy SQL"
             disabled={!sql}
+            icon={<ClipboardDocumentIcon className="h-4 w-4" />}
             onClick={() => void navigator.clipboard.writeText(sql ?? '')}
           />
         </div>

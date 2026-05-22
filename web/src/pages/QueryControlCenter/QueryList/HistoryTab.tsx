@@ -1,4 +1,4 @@
-import { Box, DialogBox, Spinner, Text } from '@web/elements';
+import { Box, Button, DialogBox, Spinner, Text } from '@web/elements';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { QueryListProps } from '../types';
@@ -36,6 +36,15 @@ export function HistoryTab({ selectedQueryId, onSelectQuery }: QueryListProps) {
   const [sourceFilter, setSourceFilter] = useState('');
   const [profileFilter, setProfileFilter] = useState('');
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  // Bulk delete state: `mode` drives the dialog wording (all vs the
+  // filtered subset) and `targets` is the frozen list of queryIds to
+  // remove. Captured at click time so a filter change after the
+  // dialog opens can't surprise the user with a different scope.
+  const [pendingBulkDelete, setPendingBulkDelete] = useState<{
+    mode: 'all' | 'filtered';
+    targets: string[];
+  } | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<Error | null>(null);
 
   const distinctUsers = useMemo(() => {
@@ -165,6 +174,33 @@ export function HistoryTab({ selectedQueryId, onSelectQuery }: QueryListProps) {
     }
   }, [deleteHistoryItem, onSelectQuery, pendingDelete, selectedQueryId]);
 
+  const confirmBulkDelete = useCallback(async () => {
+    if (!pendingBulkDelete) {
+      return;
+    }
+    const targets = pendingBulkDelete.targets;
+    setBulkDeleting(true);
+    setDeleteError(null);
+    // Sequential deletes keep the provider's `setHistoryQueries`
+    // updates ordered and let us bail out on the first failure with
+    // the rest of the diagnostics still on disk. Reuses the per-id
+    // message rather than adding a bulk API.
+    try {
+      for (const id of targets) {
+        await deleteHistoryItem(id);
+      }
+      if (selectedQueryId && targets.includes(selectedQueryId)) {
+        onSelectQuery({ queryId: '', summary: null, source: 'history' });
+      }
+      setPendingBulkDelete(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err : new Error(String(err)));
+      setPendingBulkDelete(null);
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [deleteHistoryItem, onSelectQuery, pendingBulkDelete, selectedQueryId]);
+
   if (loading) {
     return (
       <Box variant="padded">
@@ -191,6 +227,20 @@ export function HistoryTab({ selectedQueryId, onSelectQuery }: QueryListProps) {
       </Box>
     );
   }
+
+  // Bulk delete derives its scope from the current filter state at
+  // click time: with no filters active the button purges every
+  // history entry, otherwise it purges only the filtered subset.
+  // Computed inline so the label/scope re-evaluate on every render
+  // as filters change.
+  const bulkMode: 'all' | 'filtered' =
+    activeFilterCount > 0 ? 'filtered' : 'all';
+  const bulkTargets =
+    bulkMode === 'all'
+      ? items.map((p) => p.queryId)
+      : visible.map((p) => p.queryId);
+  const bulkLabel =
+    bulkMode === 'all' ? 'Delete all' : `Delete ${bulkTargets.length} filtered`;
 
   // The outer Tab panel is `h-full min-h-0` but not a flex column, so
   // the list needs its own `flex flex-col h-full min-h-0` wrapper to
@@ -252,6 +302,17 @@ export function HistoryTab({ selectedQueryId, onSelectQuery }: QueryListProps) {
           ))
         )}
       </div>
+      <div className="flex items-center justify-between text-xs pt-1">
+        <span className="opacity-70">{items.length} saved</span>
+        <Button
+          variant="secondary"
+          label={bulkLabel}
+          disabled={bulkDeleting || bulkTargets.length === 0}
+          onClick={() =>
+            setPendingBulkDelete({ mode: bulkMode, targets: bulkTargets })
+          }
+        />
+      </div>
       {deleteError && (
         <Box variant="padded">
           <Text>Failed to delete: {deleteError.message}</Text>
@@ -263,13 +324,33 @@ export function HistoryTab({ selectedQueryId, onSelectQuery }: QueryListProps) {
         title="Remove from history?"
         description={
           pendingDelete
-            ? `This deletes the sanitized JSON for ${pendingDelete} from .dj/diagnostics/. The coordinator copy (if it still exists) is not affected.`
+            ? `This permanently deletes the saved diagnostic files for ${pendingDelete} from .dj/diagnostics/. The coordinator copy (if it still exists) is not affected.`
             : undefined
         }
         confirmCTALabel="Delete"
         discardCTALabel="Cancel"
         onConfirm={() => void confirmDelete()}
         onDiscard={() => setPendingDelete(null)}
+      />
+      <DialogBox
+        open={pendingBulkDelete !== null}
+        variant="warning"
+        title={
+          pendingBulkDelete?.mode === 'filtered'
+            ? `Delete ${pendingBulkDelete.targets.length} filtered diagnostics?`
+            : 'Delete all saved diagnostics?'
+        }
+        description={
+          pendingBulkDelete
+            ? `This permanently deletes the saved diagnostic files for ${pendingBulkDelete.targets.length} ${
+                pendingBulkDelete.targets.length === 1 ? 'query' : 'queries'
+              } from .dj/diagnostics/. The coordinator copies (if they still exist) are not affected.`
+            : undefined
+        }
+        confirmCTALabel={bulkDeleting ? 'Deleting...' : 'Delete'}
+        discardCTALabel="Cancel"
+        onConfirm={() => void confirmBulkDelete()}
+        onDiscard={() => setPendingBulkDelete(null)}
       />
     </div>
   );

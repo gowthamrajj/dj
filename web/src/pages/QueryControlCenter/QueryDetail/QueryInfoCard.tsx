@@ -1,4 +1,4 @@
-import { ClipboardIcon } from '@heroicons/react/20/solid';
+import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import type { TrinoQuerySummary } from '@shared/trino/types';
 import { Button } from '@web/elements';
 
@@ -40,15 +40,17 @@ export function QueryInfoCard({
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-1 min-w-0">
           <h2 className="text-lg font-semibold m-0">Query Info</h2>
-          <div className="flex items-center gap-1.5 text-xs opacity-70 min-w-0 flex-wrap">
-            <span>ID:</span>
-            <code className="font-mono break-all">{summary.queryId}</code>
+          <div className="flex items-center text-xs opacity-70 min-w-0 flex-wrap">
+            <span>ID: {summary.queryId}</span>
             <Button
               variant="iconButton"
               className="!p-1"
               title="Copy Query ID"
               icon={
-                <ClipboardIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                <ClipboardDocumentIcon
+                  className="w-3.5 h-3.5"
+                  aria-hidden="true"
+                />
               }
               onClick={() =>
                 void navigator.clipboard.writeText(summary.queryId)
