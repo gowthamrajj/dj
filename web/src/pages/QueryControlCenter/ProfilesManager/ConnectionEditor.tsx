@@ -14,6 +14,8 @@ import {
 import { useError } from '@web/hooks';
 import { useState } from 'react';
 
+import { SectionHeader } from './SectionHeader';
+
 export type ConnectionEditorProps = {
   initial: TrinoProfile | null;
   /** Called after a successful save/delete so the parent can refresh. */
@@ -297,14 +299,6 @@ export function ConnectionEditor({ initial, onClose }: ConnectionEditorProps) {
           />
         </div>
       </div>
-    </div>
-  );
-}
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <div className="text-xs font-semibold opacity-70 tracking-wider pb-1 border-b border-neutral">
-      {title}
     </div>
   );
 }

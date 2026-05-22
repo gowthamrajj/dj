@@ -57,24 +57,25 @@ export type TrinoLiveContextValue = {
   pollIntervalMs: number;
 
   /**
-   * History (persisted-to-disk) queries, loaded on mount and mutated
-   * in place by `deletePersistedQuery`. Not polled — files only
-   * change when the user runs Analyze with AI or Load full details
-   * on a Live row, both of which call `refreshPersisted` explicitly.
-   * `persistedLoading` is only `true` on the initial load; background
-   * refreshes swap the array silently so the History list never
-   * flashes a full-tab spinner.
+   * History queries (sanitized diagnostic JSON written to
+   * `.dj/diagnostics/`), loaded on mount and mutated in place by
+   * `deleteHistoryItem`. Not polled — files only change when the
+   * user runs Analyze with AI or Load full details on a Live row,
+   * both of which call `refreshHistory` explicitly. `historyLoading`
+   * is only `true` on the initial load; background refreshes swap
+   * the array silently so the History list never flashes a full-tab
+   * spinner.
    */
-  persistedQueries: TrinoPersistedQuery[];
-  persistedLoading: boolean;
-  persistedError: Error | null;
-  refreshPersisted: () => Promise<void>;
+  historyQueries: TrinoPersistedQuery[];
+  historyLoading: boolean;
+  historyError: Error | null;
+  refreshHistory: () => Promise<void>;
   /**
    * Delete the on-disk sanitized JSON for `queryId` and remove the
-   * entry from `persistedQueries` in one step, so any consumer
-   * (PersistedTab, QueryDetail) reflects the change immediately.
+   * entry from `historyQueries` in one step, so any consumer
+   * (HistoryTab, QueryDetail) reflects the change immediately.
    */
-  deletePersistedQuery: (queryId: string) => Promise<void>;
+  deleteHistoryItem: (queryId: string) => Promise<void>;
 };
 
 export const TrinoLiveContext = createContext<TrinoLiveContextValue | null>(

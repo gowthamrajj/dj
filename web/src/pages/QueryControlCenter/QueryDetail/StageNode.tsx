@@ -1,12 +1,8 @@
 import type { TrinoStage } from '@shared/trino/types';
-import { Button, Text } from '@web/elements';
+import { Button } from '@web/elements';
 import { useState } from 'react';
 
-import { formatBytes, formatMs, formatNumber } from './format';
-
-export type StageTreeProps = {
-  stage: TrinoStage | undefined;
-};
+import { formatBytes, formatMs, formatNumber } from '../format';
 
 type Picked = {
   totalCpuTimeMs?: number;
@@ -18,6 +14,15 @@ type Picked = {
   processedBytes?: number | string;
 };
 
+/**
+ * Normalises the heterogeneous `stageStats` Trino sends back into a
+ * small predictable shape for the row UI. Trino reports time fields
+ * as either `*Time` (Duration string like `"1.23s"`) or `*TimeMillis`
+ * (raw ms number) depending on coordinator version — we prefer the
+ * numeric variant when present and fall through to the string for
+ * display. Byte fields are intentionally left as `number | string`
+ * because Trino frequently returns human-readable sizes.
+ */
 function pickStageStats(stats: Record<string, unknown> | undefined): Picked {
   if (!stats) return {};
   const get = (key: string): unknown => stats[key];
@@ -29,7 +34,6 @@ function pickStageStats(stats: Record<string, unknown> | undefined): Picked {
   const cpu = get('totalCpuTime');
   const blocked = get('totalBlockedTime');
   const sched = get('totalScheduledTime');
-  // Trino reports Duration strings ("1.23s") sometimes; just stringify for display.
   return {
     totalCpuTimeMs:
       typeof cpu === 'number' ? cpu : asNumber(get('totalCpuTimeMillis')),
@@ -51,7 +55,17 @@ function pickStageStats(stats: Record<string, unknown> | undefined): Picked {
   };
 }
 
-function StageNode({ stage, depth }: { stage: TrinoStage; depth: number }) {
+export type StageNodeProps = {
+  stage: TrinoStage;
+  depth: number;
+};
+
+/**
+ * Recursive stage tree row. Renders a single stage's stats inline,
+ * with a collapsible toggle when there are sub-stages. Self-recursive
+ * — TypeScript/ESM handles same-file recursion without trouble.
+ */
+export function StageNode({ stage, depth }: StageNodeProps) {
   const [open, setOpen] = useState(true);
   const stats = pickStageStats(stage.stageStats);
   const subStages = stage.subStages ?? [];
@@ -98,17 +112,6 @@ function StageNode({ stage, depth }: { stage: TrinoStage; depth: number }) {
             depth={depth + 1}
           />
         ))}
-    </div>
-  );
-}
-
-export function StageTree({ stage }: StageTreeProps) {
-  if (!stage) {
-    return <Text>No stage tree available for this query.</Text>;
-  }
-  return (
-    <div className="font-mono">
-      <StageNode stage={stage} depth={0} />
     </div>
   );
 }

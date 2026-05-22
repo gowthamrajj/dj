@@ -85,11 +85,11 @@ export function TrinoLiveProvider({
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [dbtOnly, setDbtOnly] = useState(false);
 
-  const [persistedQueries, setPersistedQueries] = useState<
-    TrinoPersistedQuery[]
-  >([]);
-  const [persistedLoading, setPersistedLoading] = useState(true);
-  const [persistedError, setPersistedError] = useState<Error | null>(null);
+  const [historyQueries, setHistoryQueries] = useState<TrinoPersistedQuery[]>(
+    [],
+  );
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<Error | null>(null);
 
   // The poll closure reads dbtOnly + version via refs so toggling
   // either of them does NOT recreate `fetchActive`, which would
@@ -242,48 +242,48 @@ export function TrinoLiveProvider({
     await Promise.all([fetchVersion(), fetchActive()]);
   }, [fetchActive, fetchVersion]);
 
-  // Tracks whether we've ever successfully loaded the persisted list.
+  // Tracks whether we've ever successfully loaded the history list.
   // The first load shows the full-tab spinner; subsequent background
   // refreshes (Load full details, Analyze with AI, …) swap the array
   // silently because the rows haven't gone anywhere — at most one
   // entry was appended.
-  const hasLoadedPersistedRef = useRef(false);
+  const hasLoadedHistoryRef = useRef(false);
 
-  const refreshPersisted = useCallback(async () => {
-    const isInitial = !hasLoadedPersistedRef.current;
+  const refreshHistory = useCallback(async () => {
+    const isInitial = !hasLoadedHistoryRef.current;
     if (isInitial) {
-      setPersistedLoading(true);
+      setHistoryLoading(true);
     }
     try {
       const list = await api.post({
         type: 'trino-fetch-persisted-queries',
         request: null,
       });
-      setPersistedQueries(list);
-      setPersistedError(null);
-      hasLoadedPersistedRef.current = true;
+      setHistoryQueries(list);
+      setHistoryError(null);
+      hasLoadedHistoryRef.current = true;
     } catch (err) {
-      setPersistedError(toError(err));
+      setHistoryError(toError(err));
       // Don't flip the "loaded once" flag on error — the next call
       // should still be allowed to show the spinner.
     } finally {
       if (isInitial) {
-        setPersistedLoading(false);
+        setHistoryLoading(false);
       }
     }
   }, [api]);
 
   useEffect(() => {
-    void refreshPersisted();
-  }, [refreshPersisted]);
+    void refreshHistory();
+  }, [refreshHistory]);
 
-  const deletePersistedQuery = useCallback(
+  const deleteHistoryItem = useCallback(
     async (queryId: string) => {
       await api.post({
         type: 'trino-delete-persisted-query',
         request: { queryId },
       });
-      setPersistedQueries((prev) => prev.filter((p) => p.queryId !== queryId));
+      setHistoryQueries((prev) => prev.filter((p) => p.queryId !== queryId));
     },
     [api],
   );
@@ -315,11 +315,11 @@ export function TrinoLiveProvider({
       setDbtOnly,
       refresh,
       pollIntervalMs: POLL_INTERVAL_MS,
-      persistedQueries,
-      persistedLoading,
-      persistedError,
-      refreshPersisted,
-      deletePersistedQuery,
+      historyQueries,
+      historyLoading,
+      historyError,
+      refreshHistory,
+      deleteHistoryItem,
     }),
     [
       profiles,
@@ -339,11 +339,11 @@ export function TrinoLiveProvider({
       autoRefresh,
       dbtOnly,
       refresh,
-      persistedQueries,
-      persistedLoading,
-      persistedError,
-      refreshPersisted,
-      deletePersistedQuery,
+      historyQueries,
+      historyLoading,
+      historyError,
+      refreshHistory,
+      deleteHistoryItem,
     ],
   );
 

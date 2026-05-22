@@ -1,10 +1,9 @@
 import { XMarkIcon } from '@heroicons/react/20/solid';
-import { Button } from '@web/elements';
+import { Button, Chip } from '@web/elements';
 import { useEffect, useState } from 'react';
 
-import { Chip } from './Chip';
+import { useTrinoLive } from '../useTrinoLive';
 import { ConnectionEditor } from './ConnectionEditor';
-import { useTrinoLive } from './useTrinoLive';
 
 export type ProfilesManagerProps = {
   /** Called when the user clicks Cancel / close (X). Returns to QueryDetail. */

@@ -21,3 +21,13 @@ export type SelectedQuery = {
   summary: TrinoQuerySummary | null;
   source: SelectionSource;
 };
+
+export type QueryListProps = {
+  selectedQueryId: string | null;
+  /**
+   * Called when the user clicks a row. The parent uses the `source` tag
+   * to decide whether the detail pane should auto-fetch (history /
+   * preselect) or wait for an explicit "Load full details" click (live).
+   */
+  onSelectQuery: (selection: SelectedQuery) => void;
+};

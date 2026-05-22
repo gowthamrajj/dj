@@ -1,6 +1,5 @@
-import { Button, Checkbox, InputText, SelectSingle } from '@web/elements';
+import { Button, Checkbox, Chip, InputText, SelectSingle } from '@web/elements';
 
-import { Chip } from './Chip';
 import {
   COMPACT_SELECT_CLASSNAME,
   STATE_CHIPS,

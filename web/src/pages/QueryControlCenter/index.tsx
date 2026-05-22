@@ -62,7 +62,7 @@ export function QueryControlCenter() {
   }, []);
 
   const handleSelectQuery = useCallback((sel: SelectedQuery) => {
-    // An empty queryId from a child (e.g. PersistedTab after deleting the
+    // An empty queryId from a child (e.g. HistoryTab after deleting the
     // currently-selected history item) means "clear the selection".
     setSelected(sel.queryId ? sel : null);
     setManageMode(false);

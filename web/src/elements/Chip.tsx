@@ -10,10 +10,10 @@ export type ChipProps = {
 };
 
 /**
- * Pill-style toggle used in QCC filter bars and the ProfilesManager
- * chip strip. Centralised because the existing `Button` variants in
- * `web/src/elements/` don't match the compact chip sizing this row
- * needs.
+ * Pill-style toggle. Compact alternative to `Button` for filter rows
+ * and small chip strips. Pairs well with multi-select state filters
+ * (free toggles) or single-select strips where every item is rendered
+ * as its own pill.
  */
 export function Chip({
   selected,

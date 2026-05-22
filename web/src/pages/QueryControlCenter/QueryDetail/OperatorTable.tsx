@@ -2,7 +2,7 @@ import type { TrinoOperatorSummaryEntry } from '@shared/trino/types';
 import { Table, Text } from '@web/elements';
 import { useMemo } from 'react';
 
-import { formatBytes, formatMs, formatNumber } from './format';
+import { formatBytes, formatMs, formatNumber } from '../format';
 
 export type OperatorTableProps = {
   operators: TrinoOperatorSummaryEntry[];
