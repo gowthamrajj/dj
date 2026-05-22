@@ -4,6 +4,7 @@ import type {
   TrinoQueryInfo,
   TrinoQuerySummary,
 } from '@shared/trino/types';
+import DataSearchIcon from '@web/assets/icons/data-search.svg?react';
 import { useApp } from '@web/context';
 import {
   Alert,
@@ -401,9 +402,23 @@ export function QueryDetail({ selected }: QueryDetailProps) {
 
   if (!selected) {
     return (
-      <Box variant="padded">
-        <Text>Select a query from the list to see its plan and stats.</Text>
-      </Box>
+      <div className="h-full flex items-center justify-center p-8">
+        <div className="flex items-center gap-8 max-w-2xl">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-lg font-semibold m-0">
+              Select a query to view details
+            </h2>
+            <p className="text-sm opacity-70 m-0">
+              Pick a query from Live or History to view its plan, stats, and
+              SQL &mdash; or run an AI analysis on it.
+            </p>
+          </div>
+          <DataSearchIcon
+            className="w-24 h-24 opacity-30 shrink-0"
+            aria-hidden="true"
+          />
+        </div>
+      </div>
     );
   }
 
