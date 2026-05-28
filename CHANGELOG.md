@@ -2,6 +2,8 @@
 
 ## Next
 
+- **Author CTEs visually in the Model Wizard.** Models that compile to `WITH ... SELECT ...` open with a draggable CTE list above the SELECT step. Click a CTE to edit its source, columns, filters, and framework artifact overrides in a side panel; the wizard validates the model as you type and surfaces any CTE errors before the Next step.
+
 ### Bug fixes
 
 - **YAML reserved boolean tokens are now quoted in generated YAML** — values like `OFF`, `NO`, `YES`, `ON` (and lowercase variants) round-trip through the dbt manifest as strings instead of being silently coerced to booleans by dbt's PyYAML loader. Fixes downstream crashes when reading e.g. `time_intervals: OFF` back from the manifest.

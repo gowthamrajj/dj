@@ -8,7 +8,7 @@ description: >-
   webview.
 compatibility: DJ extension workspace with .agents/dj/AGENTS.md and a populated `lightdash/` directory
 metadata:
-  dj-framework-skill: '1.0'
+  dj-skill: '1.0'
 ---
 
 # Edit Lightdash YAML (Dashboards as Code)
