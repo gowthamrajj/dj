@@ -91,6 +91,7 @@ export class Api {
       case 'lightdash-yaml-edit-file':
       case 'lightdash-yaml-download':
       case 'lightdash-yaml-upload':
+      case 'lightdash-yaml-check-upload-policy':
       case 'lightdash-yaml-delete-files':
       case 'lightdash-yaml-get-default-path':
       case 'lightdash-yaml-set-default-path':

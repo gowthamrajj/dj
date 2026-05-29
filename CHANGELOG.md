@@ -11,6 +11,7 @@
 ### Dashboards as Code
 
 - **Optional `.gitignore` helper on the Download tab** — new `Add path to .gitignore` checkbox (default off) idempotently appends the configured `dj.lightdash.dashboardsAsCodePath` to the workspace `.gitignore` before the download starts, so generated YAML stays out of version control. Entries land inside a short managed block (`# dj` … `# /dj`) so future DJ-managed paths can share the same region. Skips the write when the entry is already present and streams a single status line into the download log panel.
+- **New `dj.lightdash.restrictedProjects` setting** — flag specific Lightdash project UUIDs as `block` (the DJ Upload tab refuses the upload with an inline error) or `warn` (a confirmation dialog is shown and the upload only proceeds after explicit acknowledgement). Unlisted projects are unaffected. The setting only restricts uploads initiated from the DJ Upload tab; users with the right permissions can still run `lightdash upload` directly from a terminal, which DJ has no way to intercept.
 
 ## 1.5.0
 
