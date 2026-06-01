@@ -809,7 +809,7 @@ export const SelectNode: React.FC<NodeProps> = ({ data: _data }) => {
               variant="outline"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {cteCapable && !isTypeSource && (
               <Button
                 onClick={(e) => {
@@ -819,8 +819,7 @@ export const SelectNode: React.FC<NodeProps> = ({ data: _data }) => {
                 variant="outlineIconButton"
                 label="CREATE CTE"
                 icon={<Square3Stack3DIcon className="w-3 h-3" />}
-                iconLabelClassName="text-xs"
-                className="text-tiny p-0.5 px-2 text-foreground border-neutral bg-surface hover:bg-surface font-bold"
+                className="text-xs text-primary font-bold px-1 py-0.5"
               />
             )}
             {selectedModel && !isTypeSource && (
@@ -834,7 +833,7 @@ export const SelectNode: React.FC<NodeProps> = ({ data: _data }) => {
                 label="DATA EXPLORER"
                 icon={<DataSearchIcon className="w-3 h-3" />}
                 iconLabelClassName="text-xs"
-                className="text-tiny bg-primary text-white hover:text-white font-bold p-0.5 px-2"
+                className="bg-primary text-white hover:text-white font-bold py-0.5 px-2"
               />
             )}
           </div>

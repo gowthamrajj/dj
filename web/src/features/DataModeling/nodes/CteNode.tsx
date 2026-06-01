@@ -267,10 +267,11 @@ export const CteNode: React.FC<NodeProps> = ({ data: _data }) => {
           })()}
         </div>
         <Button
-          variant="secondary"
+          variant="outlineIconButton"
           onClick={handleAddCte}
           label="Add CTE"
           icon={<PlusIcon className="w-4 h-4" />}
+          className="p-1"
         />
       </div>
 
