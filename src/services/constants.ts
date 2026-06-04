@@ -54,6 +54,7 @@ export const COMMAND_ID = {
   DISCARD_EDIT_DRAFT: 'dj.command.discardEditDraft',
   LIGHTDASH_DASHBOARDS_AS_CODE: 'dj.command.lightdashDashboardsAsCode',
   LIGHTDASH_PREVIEW: 'dj.command.lightdashPreview',
+  LIGHTDASH_REVERSE_LINEAGE: 'dj.command.lightdashReverseLineage',
   MODEL_CLONE: 'dj.command.modelClone',
   MODEL_COMPILE: 'dj.command.modelCompile',
   MODEL_CREATE: 'dj.command.modelCreate',
@@ -100,8 +101,12 @@ export const VIEW_ID = {
   SOURCE_CREATE: 'dj.view.sourceCreate',
   LIGHTDASH_DASHBOARDS_AS_CODE: 'dj.view.lightdashDashboardsAsCode',
   LIGHTDASH_PREVIEW_MANAGER: 'dj.view.lightdashPreviewManager',
+  LIGHTDASH_REVERSE_LINEAGE: 'dj.view.lightdashReverseLineage',
+  LIGHTDASH_REVERSE_LINEAGE_FOCUS: 'dj.view.lightdashReverseLineage.focus',
   // VS Code built-in commands for focusing view containers
   COLUMN_LINEAGE_CONTAINER_FOCUS: 'workbench.view.extension.dj-column-lineage',
+  LIGHTDASH_LINEAGE_CONTAINER_FOCUS:
+    'workbench.view.extension.dj-lightdash-lineage',
 } as const;
 
 // Lightdash Dashboards-as-Code JSON schema URLs (used by the

@@ -26,12 +26,17 @@ import {
   readYamlFile,
   syncYamlSchemasSetting,
 } from '@services/lightdash/dashboardsAsCode';
+import { PanelViewProvider } from '@services/webview/PanelViewProvider';
 import { getHtml } from '@services/webview/utils';
 import type {
   LightdashModel,
   LightdashPreview,
   LightdashYamlLog,
 } from '@shared/lightdash/types';
+import type {
+  LightdashAssetListResult,
+  LightdashAssetSummary,
+} from '@shared/modellineage/types';
 import type { TreeItem } from 'admin';
 import { ThemeIcon, WORKSPACE_ROOT } from 'admin';
 import { spawn } from 'child_process';
@@ -60,6 +65,17 @@ export class Lightdash implements ApiEnabledService<'lightdash'> {
 
   private currentWebviewPanel?: vscode.WebviewPanel;
   private dashboardsAsCodePanel?: vscode.WebviewPanel;
+  /** Bottom-panel WebviewView host for the reverse-lineage graph. */
+  private reverseLineageViewProvider?: PanelViewProvider;
+  /**
+   * Anchor selected (via command/click-through) before the reverse-lineage
+   * webview finished mounting. Buffered here and flushed once the webview
+   * sends `reverse-lineage-ready`, mirroring Column Lineage's push-init.
+   */
+  private pendingReverseLineageInit?: {
+    kind: 'dashboard' | 'chart';
+    slug: string;
+  };
 
   constructor(
     private readonly dbt: Dbt,
@@ -849,6 +865,7 @@ export class Lightdash implements ApiEnabledService<'lightdash'> {
 
   activate(context: vscode.ExtensionContext): void {
     this.registerCommands(context);
+    this.registerReverseLineageProvider(context);
 
     // Sync schemas on activation. No-ops silently if the YAML extension
     // isn't installed yet.
@@ -870,6 +887,145 @@ export class Lightdash implements ApiEnabledService<'lightdash'> {
         }
       }),
     );
+  }
+
+  /**
+   * Register the bottom-panel WebviewView that renders reverse lineage
+   * (Dashboard / Chart -> upstream dbt models). API RPC is routed through
+   * the same `apiCallback` the other Lightdash webviews use; the webview's
+   * non-API `reverse-lineage-ready` signal flushes any buffered anchor.
+   */
+  private registerReverseLineageProvider(
+    context: vscode.ExtensionContext,
+  ): void {
+    this.reverseLineageViewProvider = new PanelViewProvider(
+      context.extensionUri,
+      '/lightdash/reverse-lineage',
+      { enableScripts: true },
+      (message, webview) => {
+        if (message?.type === 'reverse-lineage-ready') {
+          this.flushReverseLineageInit();
+          return;
+        }
+        void this.handleReverseLineageRpc(message, webview);
+      },
+    );
+
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        VIEW_ID.LIGHTDASH_REVERSE_LINEAGE,
+        this.reverseLineageViewProvider,
+        { webviewOptions: { retainContextWhenHidden: true } },
+      ),
+    );
+
+    this.log.info('Lightdash reverse-lineage provider registered');
+  }
+
+  /**
+   * Round-trip an API request from the reverse-lineage webview through the
+   * main Api router, echoing the `_channelId` so the web `api.post` promise
+   * resolves. Matches the `{ response } | { err }` envelope the web expects.
+   */
+  private async handleReverseLineageRpc(
+    message: { _channelId?: string; [key: string]: unknown },
+    webview: vscode.Webview,
+  ): Promise<void> {
+    const channelId = message?._channelId;
+    if (!channelId) {
+      return;
+    }
+    const { _channelId: _omit, ...payload } = message;
+    try {
+      const response = await this.apiCallback(payload);
+      void webview.postMessage({ _channelId: channelId, response });
+    } catch (error: unknown) {
+      this.log.error('Error handling reverse-lineage RPC:', error);
+      void webview.postMessage({
+        _channelId: channelId,
+        err: {
+          message: error instanceof Error ? error.message : 'Unknown Error',
+        },
+      });
+    }
+  }
+
+  /** Push the buffered anchor to the webview once it signals readiness. */
+  private flushReverseLineageInit(): void {
+    if (!this.pendingReverseLineageInit) {
+      return;
+    }
+    this.reverseLineageViewProvider?.postMessage({
+      type: 'reverse-lineage-init',
+      ...this.pendingReverseLineageInit,
+    });
+  }
+
+  /**
+   * Focus the reverse-lineage panel and load the given asset. Buffers the
+   * anchor so it survives the webview's mount (the view may not be resolved
+   * yet); the webview replays it on `reverse-lineage-ready`. Used by the
+   * command (after a QuickPick) and the forward-view click-through.
+   */
+  public async openReverseLineage(anchor: {
+    kind: 'dashboard' | 'chart';
+    slug: string;
+  }): Promise<void> {
+    this.pendingReverseLineageInit = anchor;
+    await vscode.commands.executeCommand(
+      VIEW_ID.LIGHTDASH_REVERSE_LINEAGE_FOCUS,
+    );
+    // If the webview is already mounted, push immediately; otherwise the
+    // `reverse-lineage-ready` handler will flush the buffer on mount.
+    if (this.reverseLineageViewProvider?.resolved) {
+      this.flushReverseLineageInit();
+    }
+  }
+
+  /**
+   * Show a QuickPick of all Lightdash dashboards/charts (each annotated
+   * with the dbt models it references) and return the chosen anchor.
+   * Returns undefined when there is nothing to pick or the user cancels.
+   */
+  private async pickReverseLineageAsset(): Promise<
+    { kind: 'dashboard' | 'chart'; slug: string } | undefined
+  > {
+    const result = (await this.apiCallback({
+      type: 'data-explorer-list-lightdash-assets',
+      request: null,
+    })) as unknown as LightdashAssetListResult;
+    const assets = result?.assets ?? [];
+
+    if (assets.length === 0) {
+      vscode.window.showWarningMessage(
+        'No Lightdash dashboards or charts found. Run "DJ: Lightdash - Dashboards as Code" to download them first.',
+      );
+      return undefined;
+    }
+
+    type AssetQuickPickItem = vscode.QuickPickItem & {
+      asset: LightdashAssetSummary;
+    };
+    const items: AssetQuickPickItem[] = assets.map((asset) => ({
+      label: `$(${asset.kind === 'dashboard' ? 'dashboard' : 'graph'}) ${asset.name}`,
+      description: asset.kind,
+      detail:
+        asset.modelNames.length > 0
+          ? `Models: ${asset.modelNames.join(', ')}`
+          : 'No referenced models',
+      asset,
+    }));
+
+    const picked = await vscode.window.showQuickPick(items, {
+      title: 'Lightdash Reverse Lineage',
+      placeHolder: 'Select a dashboard or chart to see its upstream models',
+      matchOnDescription: true,
+      matchOnDetail: true,
+    });
+
+    return picked
+      ? { kind: picked.asset.kind, slug: picked.asset.slug }
+      : undefined;
   }
 
   /**
@@ -1044,6 +1200,41 @@ export class Lightdash implements ApiEnabledService<'lightdash'> {
             this.log.error('ERROR OPENING DASHBOARDS-AS-CODE PANEL: ', err);
             vscode.window.showErrorMessage(
               'Failed to open Lightdash Dashboards as Code',
+            );
+          }
+        },
+      ),
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        COMMAND_ID.LIGHTDASH_REVERSE_LINEAGE,
+        async (arg?: { kind?: 'dashboard' | 'chart'; slug?: string }) => {
+          try {
+            let anchor:
+              | { kind: 'dashboard' | 'chart'; slug: string }
+              | undefined;
+
+            // Click-through / programmatic invocation passes the anchor;
+            // a bare palette invocation falls back to the asset picker.
+            if (
+              arg?.slug &&
+              (arg.kind === 'dashboard' || arg.kind === 'chart')
+            ) {
+              anchor = { kind: arg.kind, slug: arg.slug };
+            } else {
+              anchor = await this.pickReverseLineageAsset();
+            }
+
+            if (!anchor) {
+              return;
+            }
+
+            await this.openReverseLineage(anchor);
+          } catch (err: unknown) {
+            this.log.error('ERROR OPENING REVERSE LINEAGE: ', err);
+            vscode.window.showErrorMessage(
+              'Failed to open Lightdash reverse lineage',
             );
           }
         },

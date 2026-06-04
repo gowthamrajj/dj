@@ -1,5 +1,14 @@
 # Change Log
 
+## Next
+
+### Lightdash reverse lineage
+
+- **Trace a Lightdash dashboard or chart back to its dbt models.** The new `DJ: Lightdash — Reverse Lineage` command opens a **Lightdash Lineage** panel where you pick an asset and see the `mart_*` model(s) it depends on. Each model node's icons act on that model directly — view columns, compile, or run a preview — and you can keep expanding further upstream. You can also open the view by clicking a dashboard or chart node in the Data Explorer model-lineage graph.
+- **An asset picker built for large projects.** The picker is searchable and filterable (**All / Dashboards / Charts / Standalone**) and stays responsive even with thousands of charts and dashboards. Each entry shows a kind badge and, for charts, which dashboard(s) it belongs to (or **Standalone**); selecting a chart also shows its parent dashboard(s) in the graph.
+- **Helpful prerequisite states.** The view flags referenced models that aren't in the project, shows a download banner when no Lightdash content is present, and offers a one-click **Refresh Projects** when the dbt manifest hasn't been built yet.
+- **More reliable model resolution** for Lightdash charts that don't name an explore, fixing both the forward and reverse Lightdash lineage.
+
 ## 1.6.0
 
 ### Agent Skills

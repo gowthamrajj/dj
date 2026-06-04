@@ -223,6 +223,10 @@ interface DataExplorerStore {
   setLightdashEnabled: (enabled: boolean) => Promise<void>;
   openDashboardsAsCode: () => Promise<void>;
   openLightdashYaml: (filePath: string) => Promise<void>;
+  openReverseLineage: (anchor: {
+    kind: 'dashboard' | 'chart';
+    slug: string;
+  }) => Promise<void>;
 
   // Store the API handler
 
@@ -1089,6 +1093,27 @@ export const useDataExplorerStore = create<DataExplorerStore>((set, get) => ({
     } catch (error) {
       console.error(
         '[DataExplorerStore] Error opening Lightdash YAML file:',
+        error,
+      );
+    }
+  },
+
+  openReverseLineage: async (anchor: {
+    kind: 'dashboard' | 'chart';
+    slug: string;
+  }) => {
+    const { _apiHandler } = get();
+    if (!_apiHandler || !anchor?.slug) {
+      return;
+    }
+    try {
+      await _apiHandler({
+        type: 'data-explorer-open-reverse-lineage',
+        request: anchor,
+      });
+    } catch (error) {
+      console.error(
+        '[DataExplorerStore] Error opening reverse lineage:',
         error,
       );
     }

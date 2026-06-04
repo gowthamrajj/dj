@@ -108,6 +108,11 @@
         "title": "DJ: Lightdash - Dashboards as Code"
       },
       {
+        "command": "dj.command.lightdashReverseLineage",
+        "icon": "$(dashboard)",
+        "title": "DJ: Lightdash - Reverse Lineage"
+      },
+      {
         "command": "dj.command.modelNavigate",
         "title": "DJ: Navigate to Model"
       },
@@ -721,6 +726,14 @@
           "name": "Column Lineage",
           "icon": "$(type-hierarchy)"
         }
+      ],
+      "dj-lightdash-lineage": [
+        {
+          "id": "dj.view.lightdashReverseLineage",
+          "type": "webview",
+          "name": "Lightdash Lineage",
+          "icon": "$(dashboard)"
+        }
       ]
     },
     "viewsWelcome": [
@@ -747,6 +760,11 @@
           "id": "dj-column-lineage",
           "title": "Column Lineage",
           "icon": "$(type-hierarchy)"
+        },
+        {
+          "id": "dj-lightdash-lineage",
+          "title": "Lightdash Lineage",
+          "icon": "$(dashboard)"
         }
       ]
     }
