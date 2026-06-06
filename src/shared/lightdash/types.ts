@@ -200,6 +200,17 @@ export type LightdashApi =
       response: { path: string; absolutePath: string };
     }
   | {
+      type: 'lightdash-yaml-get-download-defaults';
+      service: 'lightdash';
+      request: null;
+      /**
+       * Seeds the Download tab's option defaults from VS Code settings.
+       * `addPathToGitignore` mirrors `dj.lightdash.defaultAddPathToGitignore`
+       * (default `true`).
+       */
+      response: { addPathToGitignore: boolean };
+    }
+  | {
       type: 'lightdash-yaml-set-default-path';
       service: 'lightdash';
       request: { path: string };

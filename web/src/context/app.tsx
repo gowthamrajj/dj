@@ -541,6 +541,13 @@ export function AppProvider() {
                     }),
                   );
                 }
+                case 'lightdash-yaml-get-download-defaults': {
+                  return resolve(
+                    apiResponse<typeof payloadType>({
+                      addPathToGitignore: true,
+                    }),
+                  );
+                }
                 case 'lightdash-yaml-set-default-path': {
                   const newPath = (payload.request as { path: string }).path;
                   return resolve(

@@ -94,6 +94,7 @@ export class Api {
       case 'lightdash-yaml-check-upload-policy':
       case 'lightdash-yaml-delete-files':
       case 'lightdash-yaml-get-default-path':
+      case 'lightdash-yaml-get-download-defaults':
       case 'lightdash-yaml-set-default-path':
       case 'lightdash-yaml-ensure-gitignore':
         // Lazy resolution - gets handler only when needed

@@ -19,6 +19,7 @@ Complete guide to configuring the DJ (Data JSON) Framework VS Code extension.
 | `lightdash.defaultSqlFilter`                    | Global default `sql_filter` for lightdash tables                 | Next sync 🔄    |
 | `lightdash.defaultSqlFilterRequiredColumns`     | Required columns guard for the global filter                     | Next sync 🔄    |
 | `lightdash.defaultPartitionColumnCaseSensitive` | Set default `case_sensitive` value for partition columns in YAML | Next sync 🔄    |
+| `lightdash.defaultAddPathToGitignore`           | Default state of the Download tab `.gitignore` checkbox          | Next panel ⚡   |
 | `lightdash.restrictedProjects`                  | Block/warn DJ Upload against Lightdash project UUIDs             | Next upload ⚡  |
 | `aiHintTag`                                     | Tag for AI-generated hints                                       | Next sync 🔄    |
 | `codingAgent`                                   | Coding agent integration                                         | Refresh 🔄      |
@@ -151,6 +152,17 @@ Takes effect on next `DJ: Sync to SQL and YML`.
 - When `true`, every generated partition column in `.yml` files gets `meta.dimension.case_sensitive: true`. This stops Lightdash from wrapping the column in `UPPER()` in queries, preserving Trino predicate pushdown on partitioned tables.
 - When `false` (the default), partition columns are emitted without the auto-injected `case_sensitive` flag. Per-model and per-column `lightdash.case_sensitive` overrides in `.model.json` continue to work in either mode.
 - Takes effect on next `DJ: Sync to SQL and YML`.
+
+**`dj.lightdash.defaultAddPathToGitignore`** - Initial state of the Download tab `Add path to .gitignore` checkbox (default: `true`)
+
+```json
+{ "dj.lightdash.defaultAddPathToGitignore": true }
+```
+
+- Controls whether the `Add path to .gitignore` checkbox on the Dashboards-as-Code **Download** tab starts checked. When checked, downloading appends the configured `dj.lightdash.dashboardsAsCodePath` to the workspace `.gitignore` as a **root-anchored** entry (e.g. `/lightdash/`, inside a managed `# dj` … `# /dj` marker block) so generated YAML stays out of version control without ignoring same-named directories nested elsewhere.
+- When `false`, the checkbox starts unchecked (the previous opt-in behaviour).
+- This setting only seeds the checkbox's default; users can still toggle it per-download.
+- Takes effect the next time the Dashboards-as-Code panel is opened (no resync / refresh needed).
 
 **`dj.lightdash.restrictedProjects`** - Restrict the DJ Dashboards-as-Code Upload tab against specific Lightdash project UUIDs (default: `[]`)
 

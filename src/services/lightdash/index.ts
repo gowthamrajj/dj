@@ -367,6 +367,12 @@ export class Lightdash implements ApiEnabledService<'lightdash'> {
           absolutePath: getDashboardsAsCodeAbsolutePath(),
         });
       }
+      case 'lightdash-yaml-get-download-defaults': {
+        return apiResponse<typeof payload.type>({
+          addPathToGitignore:
+            getDjConfig().lightdashDefaultAddPathToGitignore ?? true,
+        });
+      }
       case 'lightdash-yaml-set-default-path': {
         try {
           const newPath = payload.request.path.trim();

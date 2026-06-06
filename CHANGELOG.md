@@ -2,7 +2,8 @@
 
 ## Next
 
-- **New `dj.lightdash.restrictedProjects` setting** — flag specific Lightdash project UUIDs as `block` (the DJ Upload tab refuses the upload with an inline error) or `warn` (a confirmation dialog is shown and the upload only proceeds after explicit acknowledgement).
+- **New `dj.lightdash.restrictedProjects` setting** — flag Lightdash project UUIDs as `block` (the Upload tab refuses with an inline error) or `warn` (upload proceeds only after a confirmation dialog).
+- **`Add path to .gitignore` now defaults to on**, overridable via the new `dj.lightdash.defaultAddPathToGitignore` setting (`false` keeps it opt-in). The written entry is now root-anchored (e.g. `/lightdash/`) so a same-named directory nested elsewhere isn't ignored.
 
 ## 1.6.0
 

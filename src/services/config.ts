@@ -70,6 +70,10 @@ export function getDjConfig(): CoderConfig {
       'lightdash.defaultPartitionColumnCaseSensitive',
       false,
     ),
+    lightdashDefaultAddPathToGitignore: config.get(
+      'lightdash.defaultAddPathToGitignore',
+      true,
+    ),
     lightdashRestrictedProjects: config.get<LightdashRestrictedProject[]>(
       'lightdash.restrictedProjects',
       [],
@@ -313,6 +317,12 @@ export function getSettingReloadRequirement(
       action: 'compile',
       actionCommand: 'dj.command.jsonSync',
       description: "Requires 'DJ: Sync to SQL and YML' to take effect",
+    },
+    'lightdash.defaultAddPathToGitignore': {
+      requiresAction: false,
+      action: 'none',
+      description:
+        'Takes effect the next time the Dashboards-as-Code panel is opened',
     },
     'lightdash.restrictedProjects': {
       requiresAction: false,
@@ -861,6 +871,18 @@ export function registerConfigurationChangeHandler(
       if (event.affectsConfiguration('dj.lightdash.restrictedProjects')) {
         void vscode.window.setStatusBarMessage(
           'DJ: Lightdash restricted projects updated - will be enforced on next upload',
+          4000,
+        );
+      }
+
+      // lightdash.defaultAddPathToGitignore - simple status-bar toast; the
+      // default only seeds the checkbox when the Dashboards-as-Code panel
+      // is (re)opened, so no resync / refresh is needed.
+      if (
+        event.affectsConfiguration('dj.lightdash.defaultAddPathToGitignore')
+      ) {
+        void vscode.window.setStatusBarMessage(
+          "DJ: Default '.gitignore' helper updated - re-open the Dashboards-as-Code panel to apply",
           4000,
         );
       }
