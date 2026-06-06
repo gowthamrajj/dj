@@ -145,7 +145,9 @@ export function SelectSingle({
           // virtualized mode, where each option is absolutely positioned and
           // would otherwise shrink to its content width.
           'relative block w-full cursor-default select-none py-2 pl-3 pr-9 text-background-contrast text-sm',
-          focus ? 'bg-primary text-primary-contrast' : 'text-background-contrast',
+          focus
+            ? 'bg-primary text-primary-contrast'
+            : 'text-background-contrast',
         )
       }
     >

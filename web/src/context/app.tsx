@@ -832,7 +832,8 @@ export function AppProvider() {
                           hasOwnUpstream: true,
                         },
                       ],
-                      staleModels: kind === 'dashboard' ? ['mart_customers'] : [],
+                      staleModels:
+                        kind === 'dashboard' ? ['mart_customers'] : [],
                       projectName: 'demo',
                       manifestAvailable: true,
                       lightdashAvailable: true,

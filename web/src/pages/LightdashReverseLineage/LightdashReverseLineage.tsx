@@ -198,8 +198,7 @@ export function LightdashReverseLineage() {
   // Lookup over ALL assets (not just the filtered view) so a selected anchor
   // outside the current filter still resolves its badge + sub-line.
   const assetByValue = useMemo(
-    () =>
-      new Map(assets.map((a) => [encodeAsset(a.kind, a.slug), a] as const)),
+    () => new Map(assets.map((a) => [encodeAsset(a.kind, a.slug), a] as const)),
     [assets],
   );
 

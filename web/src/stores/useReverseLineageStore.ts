@@ -160,8 +160,12 @@ export const useReverseLineageStore = create<ReverseLineageStore>(
     },
 
     expandUpstreamNode: async (modelName: string, projectName: string) => {
-      const { _apiHandler, expandedUpstream, additionalNodes, additionalEdges } =
-        get();
+      const {
+        _apiHandler,
+        expandedUpstream,
+        additionalNodes,
+        additionalEdges,
+      } = get();
       if (!_apiHandler) {
         return;
       }
@@ -212,10 +216,7 @@ export const useReverseLineageStore = create<ReverseLineageStore>(
         additionalEdges: [],
       }),
 
-    openModelInDataExplorer: async (
-      modelName: string,
-      projectName: string,
-    ) => {
+    openModelInDataExplorer: async (modelName: string, projectName: string) => {
       const { _apiHandler } = get();
       if (!_apiHandler) {
         return;
@@ -292,7 +293,10 @@ export const useReverseLineageStore = create<ReverseLineageStore>(
           request: { url },
         });
       } catch (error) {
-        console.error('[ReverseLineageStore] Error opening Lightdash URL:', error);
+        console.error(
+          '[ReverseLineageStore] Error opening Lightdash URL:',
+          error,
+        );
       }
     },
 
@@ -348,7 +352,10 @@ export const useReverseLineageStore = create<ReverseLineageStore>(
           await fetchReverseLineage(anchorRef);
         }
       } catch (error) {
-        console.error('[ReverseLineageStore] Error refreshing projects:', error);
+        console.error(
+          '[ReverseLineageStore] Error refreshing projects:',
+          error,
+        );
       }
     },
   }),

@@ -146,7 +146,11 @@ describe('ModelLineage.getReverseLineage', () => {
       anchor: dashboardAnchor(),
       modelNames: ['mart_orders', 'mart_customers', 'mart_missing'],
     };
-    const data = await getReverse(makeCoder(true), 'dashboard', 'exec-overview');
+    const data = await getReverse(
+      makeCoder(true),
+      'dashboard',
+      'exec-overview',
+    );
 
     expect(data.manifestAvailable).toBe(true);
     expect(data.lightdashAvailable).toBe(true);
