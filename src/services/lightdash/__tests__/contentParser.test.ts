@@ -175,7 +175,9 @@ describe('resolveModelFromFieldId', () => {
       resolveModelFromFieldId('stg__core__orders__line_items_id', knownModels),
     ).toBeNull();
     // A `mart` prefix alone must NOT resolve (the old buggy behaviour).
-    expect(resolveModelFromFieldId('mart_something_else', knownModels)).toBeNull();
+    expect(
+      resolveModelFromFieldId('mart_something_else', knownModels),
+    ).toBeNull();
   });
 
   it('matches a field id whose prefix is a known __-delimited model', () => {
