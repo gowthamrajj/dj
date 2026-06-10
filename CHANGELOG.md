@@ -1,11 +1,17 @@
 # Change Log
 
+## 1.8.0
+
+### Bug fixes
+
+- **YAML reserved tokens round-trip safely.** Values like `OFF`, `ON`, `YES`, `NO` (and lowercase variants) are now quoted on emit and tolerated on load, so `time_intervals: OFF` no longer turns into `false` in the manifest and crashes sync. Per-column meta failures also name the offending column.
+- **Sync errors surface the real cause.** SQL/YML generation failures now show the underlying message instead of always pointing at `expr` syntax.
+
 ## 1.7.1
 
 ### Iceberg write strategy update
 
 - **Write strategy** — Iceberg incremental writes now use an event-date literal directly instead of creating and querying a temporary table, improving write performance
-
 
 ## 1.7.0
 
