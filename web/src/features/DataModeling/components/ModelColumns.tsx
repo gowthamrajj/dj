@@ -408,7 +408,7 @@ export const ModelColumns: React.FC<ModelColumnsProps> = ({
           <Button
             onClick={handleClear}
             variant="iconButton"
-            className="text-xs font-medium hover:bg-list-item-hover hover:text-gray-600 text-gray-600 m-0 py-1 px-1"
+            className="text-xs font-medium hover:bg-list-item-hover hover:text-muted-foreground text-muted-foreground m-0 py-1 px-1"
             label="Reset"
             //icon={<XMarkIcon className="w-3 h-3" />}
           />

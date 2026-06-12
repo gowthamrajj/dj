@@ -525,9 +525,6 @@ export const AddColumnBasic = ({
       </div>
 
       {/* Form Fields - Flex Wrap Layout */}
-      {/* Theme tokens (`bg-surface`, neutral border) so the form blends
-          with both light and dark canvases. A hardcoded colour would
-          render as a white slab against a dark theme. */}
       <div className="bg-surface border border-neutral rounded-md p-4">
         <div className="flex flex-wrap gap-4">
           {/* Type - conditional rendering based on column name */}
