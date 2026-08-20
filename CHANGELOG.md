@@ -1,5 +1,11 @@
 # Change Log
 
+## Next
+
+### Documentation
+
+- **Single `jaffle_shop` example project.** Consolidates the two duplicate example dbt projects into one at `docs/examples/jaffle_shop`, which now includes the Lightdash examples. Docs, links, and the example walkthroughs point at this single project.
+
 ## 2.2.1
 
 ### Security
