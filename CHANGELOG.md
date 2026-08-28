@@ -6,6 +6,12 @@
 
 - **Single `jaffle_shop` example project.** Consolidates the two duplicate example dbt projects into one at `docs/examples/jaffle_shop`, which now includes the Lightdash examples. Docs, links, and the example walkthroughs point at this single project.
 
+## 2.3.0
+
+### Framework
+
+- **Force extra dbt model dependencies with `depends_on`.** On any `.model.json`, set `"depends_on": ["processed_orders", ...]` to emit `--depends_on: {{ ref('...') }}` comments in generated SQL so dbt can discover refs that are otherwise hidden at parse time (for example inside `{% if execute %}`).
+
 ## 2.2.1
 
 ### Security
