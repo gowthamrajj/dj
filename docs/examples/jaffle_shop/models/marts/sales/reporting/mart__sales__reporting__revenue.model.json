@@ -4,6 +4,7 @@
     "topic": "reporting",
     "name": "revenue",
     "tags": [
+        "lightdash",
         "lightdash-explore"
     ],
     "from": {

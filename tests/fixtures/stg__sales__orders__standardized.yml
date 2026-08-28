@@ -56,8 +56,6 @@ models:
           metrics:
             metric_order_count:
               ai_hint: Use this to count total orders or analyze order volume trends over time
-              tags:
-                - ai
               type: count_distinct
               label: Number of Orders
               group_label: Order Metrics
@@ -76,16 +74,12 @@ models:
             metric_order_total_sum:
               ai_hint: Use this metric to calculate total revenue including tax. This is the
                 key metric for overall sales performance
-              tags:
-                - ai
               type: sum
               label: Total Revenue
               group_label: Order Metrics
             metric_order_total_average:
               ai_hint: Use this to understand average order value (AOV) including tax, a key
                 e-commerce metric
-              tags:
-                - ai
               type: average
               label: Average Order Value (AOV)
               group_label: Order Metrics
@@ -136,15 +130,11 @@ models:
           metrics:
             metric_subtotal_total:
               ai_hint: Use this to calculate total sales revenue before tax across all orders
-              tags:
-                - ai
               type: sum
               label: Total Order Subtotal
               group_label: Order Metrics
             metric_subtotal_average:
               ai_hint: Use this to understand the typical order value before tax
-              tags:
-                - ai
               type: average
               label: Average Order Subtotal
               group_label: Order Metrics
@@ -163,8 +153,6 @@ models:
             metric_tax_collected:
               ai_hint: Use this to calculate total tax collected for compliance and reporting
                 purposes
-              tags:
-                - ai
               type: sum
               label: Total Tax Collected
               group_label: Order Metrics

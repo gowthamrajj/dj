@@ -67,16 +67,12 @@ models:
             metric_total_items_sold:
               ai_hint: Use this to analyze product sales volume and inventory demand for
                 best-selling items
-              tags:
-                - ai
               type: sum
               label: Total Items Sold
               group_label: Product Popularity
             metric_avg_items_per_order:
               ai_hint: Use this to understand typical order quantities for inventory and
                 fulfillment planning
-              tags:
-                - ai
               type: average
               label: Average Items Per Order
               group_label: Product Popularity
@@ -91,8 +87,6 @@ models:
             metric_product_order_count:
               ai_hint: Use this to understand product popularity and which items are
                 frequently purchased together
-              tags:
-                - ai
               type: sum
               label: Orders Containing Product
               group_label: Product Popularity

@@ -79,16 +79,12 @@ models:
             metric_total_orders_per_customer:
               ai_hint: Use this to analyze customer purchase frequency and identify high-value
                 customers
-              tags:
-                - ai
               type: sum
               label: Total Orders Per Customer
               group_label: Customer Metrics
             metric_avg_orders_per_customer:
               ai_hint: Use this to understand typical customer engagement and repeat purchase
                 behavior
-              tags:
-                - ai
               type: average
               label: Average Orders Per Customer
               group_label: Customer Metrics

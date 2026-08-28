@@ -108,8 +108,6 @@ models:
             metric_order_total_dollars:
               ai_hint: Use this metric for revenue analysis in dollar amounts. This is the
                 primary metric for overall sales performance and revenue trends
-              tags:
-                - ai
               type: sum
               label: Total Revenue (Dollars)
               group_label: Order Metrics
@@ -203,6 +201,8 @@ models:
       - name: portal_partition_monthly
         data_type: date
         description: Monthly Partition Column
+        tests:
+          - not_null
         meta:
           type: dim
           dimension:
@@ -210,6 +210,8 @@ models:
       - name: portal_partition_daily
         data_type: date
         description: Daily Partition Column
+        tests:
+          - not_null
         meta:
           type: dim
           dimension:
@@ -217,6 +219,8 @@ models:
       - name: portal_partition_hourly
         data_type: timestamp(6)
         description: Hourly Partition Column
+        tests:
+          - not_null
         meta:
           type: dim
           dimension:

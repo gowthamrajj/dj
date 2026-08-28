@@ -12,6 +12,7 @@ models:
     config:
       tags:
         - json
+        - lightdash
         - lightdash-explore
         - mart
     meta:
@@ -175,8 +176,6 @@ models:
             metric_subtotal_revenue:
               ai_hint: Use this to analyze pre-tax revenue for reporting and comparison across
                 tax jurisdictions
-              tags:
-                - ai
               type: sum
               label: Total Subtotal Revenue
               group_label: Revenue Metrics
@@ -194,8 +193,6 @@ models:
           metrics:
             metric_total_tax:
               ai_hint: Use this for tax reporting and compliance analysis
-              tags:
-                - ai
               type: sum
               label: Total Tax Collected
               group_label: Revenue Metrics
@@ -214,16 +211,12 @@ models:
             metric_total_revenue:
               ai_hint: Use this as the primary revenue metric for financial reporting and
                 dashboard KPIs
-              tags:
-                - ai
               type: sum
               label: Total Revenue
               group_label: Revenue Metrics
             metric_avg_order_value:
               ai_hint: Use this to track AOV trends over time, a key e-commerce performance
                 indicator
-              tags:
-                - ai
               type: average
               label: Average Order Value (AOV)
               group_label: Revenue Metrics

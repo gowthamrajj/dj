@@ -33,8 +33,6 @@ models:
             metric_aov_by_segment:
               ai_hint: Use this to compare average order values across stores, time periods,
                 or customer segments
-              tags:
-                - ai
               type: average
               label: AOV by Segment
               group_label: Profitability Metrics
@@ -61,8 +59,6 @@ models:
           metrics:
             metric_order_volume:
               ai_hint: Use this to analyze transaction volume trends and store performance
-              tags:
-                - ai
               type: sum
               label: Order Volume
               group_label: Profitability Metrics
@@ -115,8 +111,6 @@ models:
             metric_daily_revenue:
               ai_hint: Use this to analyze daily sales patterns and identify peak revenue days
                 for staffing and inventory
-              tags:
-                - ai
               type: sum
               label: Daily Revenue
               group_label: Profitability Metrics
@@ -156,8 +150,6 @@ models:
             metric_aggregated_revenue:
               ai_hint: Use this for store-level or time-based revenue aggregation and
                 profitability analysis
-              tags:
-                - ai
               type: sum
               label: Aggregated Revenue
               group_label: Profitability Metrics
@@ -175,8 +167,6 @@ models:
           metrics:
             metric_aggregated_tax:
               ai_hint: Use this for tax reporting by store location or time period
-              tags:
-                - ai
               type: sum
               label: Aggregated Tax
               group_label: Profitability Metrics

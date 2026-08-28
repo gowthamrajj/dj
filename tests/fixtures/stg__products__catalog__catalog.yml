@@ -78,8 +78,6 @@ models:
           metrics:
             metric_product_price_cents_sum:
               ai_hint: Use this for internal calculations or when cent precision is required
-              tags:
-                - ai
               type: sum
               label: Product Price Sum (cents)
               group_label: Product Metrics
@@ -94,8 +92,6 @@ models:
             metric_product_price_dollars_sum:
               ai_hint: Use this metric to calculate total product catalog value or analyze
                 average product pricing
-              tags:
-                - ai
               type: sum
               label: Total Product Value
               group_label: Product Metrics

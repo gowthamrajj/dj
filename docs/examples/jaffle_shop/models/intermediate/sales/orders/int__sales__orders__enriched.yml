@@ -201,6 +201,8 @@ models:
       - name: portal_partition_monthly
         data_type: date
         description: Monthly Partition Column
+        tests:
+          - not_null
         meta:
           type: dim
           dimension:
@@ -208,6 +210,8 @@ models:
       - name: portal_partition_daily
         data_type: date
         description: Daily Partition Column
+        tests:
+          - not_null
         meta:
           type: dim
           dimension:
@@ -215,6 +219,8 @@ models:
       - name: portal_partition_hourly
         data_type: timestamp(6)
         description: Hourly Partition Column
+        tests:
+          - not_null
         meta:
           type: dim
           dimension:

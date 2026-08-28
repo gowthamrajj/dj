@@ -140,8 +140,6 @@ models:
             metric_avg_cost_ratio:
               ai_hint: Use this to analyze profit margins and identify products with
                 unfavorable cost structures
-              tags:
-                - ai
               type: average
               label: Average Cost-to-Price Ratio
               group_label: Profitability Metrics

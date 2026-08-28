@@ -17,7 +17,7 @@
                 "product_sku",
                 "product_name",
                 "product_type",
-                "product_price_dollars",
+                "product_price_dollars"
             ]
         },
         {

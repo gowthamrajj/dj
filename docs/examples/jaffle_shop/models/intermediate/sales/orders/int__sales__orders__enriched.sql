@@ -1,6 +1,9 @@
 {{
   config(
-    materialized="ephemeral"
+    materialized="incremental",
+    incremental_strategy="overwrite_existing_partitions",
+    pre_hook="set session iterative_optimizer_timeout='60m'; set session query_max_planning_time='60m'",
+    properties={"partitioned_by":"ARRAY['portal_partition_monthly', 'portal_partition_daily', 'portal_partition_hourly']"}
   )
 }}
 
