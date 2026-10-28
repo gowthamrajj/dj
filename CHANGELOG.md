@@ -25,8 +25,6 @@
 ### Model Wizard
 
 - **Create and edit models with `materialization` instead of deprecated top-level fields.** The wizard writes `materialization` (string or nested strategy/partitions) rather than `materialized`, `incremental_strategy`, and `partitioned_by`. Saving an edit removes those legacy keys from the file. jaffle_shop examples use the new shape.
-- **Attach config fragments in Additional Fields** when the project defines `kind: "config"` fragments, and **add select fragments** from the Data Modeling column panel. Duplicate output column names are highlighted on the Columns step and block advancing the wizard until you remove one source.
-- **Create or edit template children** from Basic Information (template + `with` parameters). The editor works on the merged model; save runs `diffAgainstTemplate` so only deltas stay on disk.
 
 ### Agent / CLI
 
