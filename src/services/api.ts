@@ -103,6 +103,10 @@ export class Api {
       case 'framework-fragment-columns':
       case 'framework-template-list':
       case 'framework-template-get':
+      case 'framework-python-model-create':
+      case 'framework-dag-create':
+      case 'framework-get-available-dags':
+      case 'framework-get-python-model-groups':
         return (await this.framework.handleApi(
           payload as any,
         )) as ApiResponse<T>;

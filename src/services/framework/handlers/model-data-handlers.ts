@@ -242,7 +242,7 @@ export class ModelDataHandlers {
     const { modelName, projectName } = payload.request;
     if (typeof modelName !== 'string' || modelName.trim() === '') {
       throw new Error(
-        'model.columns: requires non-empty modelName (use --file examples/model-columns.request.json or --modelName)',
+        'model.columns: requires non-empty modelName (use --file .dj/examples/model-columns.request.json or --modelName)',
       );
     }
     const project = this.ctx.dbt.projects.get(projectName);

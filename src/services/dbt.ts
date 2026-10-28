@@ -1717,6 +1717,20 @@ ${macro.macro_sql}`;
     this.log.info('SETTING PROJECT');
     this.projects.set(project.name, project);
 
+    // Load modeling framework config (e.g. Lightdash custom granularities)
+    if (this.coder?.modelingFramework) {
+      try {
+        await this.coder.modelingFramework.loadProjectConfig(pathSystem, 'dbt');
+        await this.coder.modelingFramework.applyTimeIntervalsSchema(
+          DJ_SCHEMAS_PATH,
+          (intervals) =>
+            this.coder.framework?.refreshTimeIntervalsSchema(intervals),
+        );
+      } catch (err: unknown) {
+        this.log.warn('Failed to load modeling framework config:', err);
+      }
+    }
+
     // Write the dags contributed by the extension so they'll be available for airflow
     await this.writeAirflowDags();
 

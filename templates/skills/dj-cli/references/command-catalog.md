@@ -2,7 +2,7 @@
 
 Run `.dj/bin/dj system.capabilities` for the **authoritative** live list. This file is an offline quick-ref (~40 operations).
 
-Run `.dj/bin/dj system.capabilities` for the live operation list with `sideEffect` tags. Per-op syntax: `.dj/bin/dj <op> --help` or `docs/cli_commands/command-reference.md` (**Agent example** column).
+Run `.dj/bin/dj system.capabilities` for the live operation list with `sideEffect` tags. Per-op syntax: `.dj/bin/dj <op> --help` or `docs/cli/command-reference.md` (**Agent example** column).
 
 **Agents:** prefer `--file examples/…` over inline `--json` for all ops **except** flat-body **`model.create`**, envelope/flat **`model.preview`**, and flat **`source.create`** (still `--file`, not flags-first). Run **`dj <op> --help`** for JSON invoke help. Flags merge into the payload: `--modelName`, `--projectName`, `--select`, `--sql`, `--depth` (flags override file fields).
 
@@ -100,4 +100,4 @@ Run `.dj/bin/dj system.capabilities` for the live operation list with `sideEffec
 | `model.reverse-lineage` | read | `kind`, `slug` | `.dj/bin/dj model.reverse-lineage --file payload.json` (`{"kind":"chart","slug":"…"}` in file) |
 | `query.execute` | read | `sql` | `.dj/bin/dj query.execute --sql 'SELECT 1'` or `--file examples/query-execute.request.json` |
 
-Repo examples: [`examples/`](../../../../examples/).
+Workspace examples: `.dj/examples/`.

@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { createOperationRegistry } from '@services/cliBridge/operationRegistry';
 import {
   CLI_OPERATION_NAMES,
@@ -37,6 +38,6 @@ describe('operationHelp', () => {
   it('model.create uses fileFlatBody preferred invoke', () => {
     const h = getOperationHelp('model.create');
     expect(h?.preferredInvoke).toBe('fileFlatBody');
-    expect(h?.exampleFile).toBe('examples/model-create.request.json');
+    expect(h?.exampleFile).toBe('.dj/examples/model-create.request.json');
   });
 });
