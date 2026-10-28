@@ -14,8 +14,8 @@ import { makeClassName } from '@web';
 import { useApp } from '@web/context';
 import { useEnvironment } from '@web/context';
 import { DialogBox, Spinner } from '@web/elements';
-import { formatDuplicateColumnMessage } from '@web/features/DataModeling/utils/columnOutputDuplicates';
 import { ActionType } from '@web/features/DataModeling/types';
+import { formatDuplicateColumnMessage } from '@web/features/DataModeling/utils/columnOutputDuplicates';
 import {
   AdditionalFields,
   BasicInformation,

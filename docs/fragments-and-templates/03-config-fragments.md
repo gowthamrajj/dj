@@ -11,10 +11,10 @@ A **config fragment** is a `*.fragment.json` with `"kind": "config"`. It carries
   "materialization": {
     "type": "incremental",
     "format": "iceberg",
-    "strategy": { "type": "delete+insert" }
+    "strategy": { "type": "delete+insert" },
   },
   "tags": ["billing"],
-  "meta": { "owner": "finops", "sla": { "hours": 24 } }
+  "meta": { "owner": "finops", "sla": { "hours": 24 } },
 }
 ```
 
@@ -44,11 +44,11 @@ Config fragments may themselves list `"fragments"` (nested config fragments reso
 
 ## Merge rules
 
-| Key | Behavior |
-|-----|----------|
+| Key                       | Behavior                                                                           |
+| ------------------------- | ---------------------------------------------------------------------------------- |
 | Most scalar / object keys | Later fragment overrides earlier; **model-authored values win** over all fragments |
-| `tags` | Union / merge across fragments and model |
-| `meta` | Deep-merge key by key; model wins on conflict |
+| `tags`                    | Union / merge across fragments and model                                           |
+| `meta`                    | Deep-merge key by key; model wins on conflict                                      |
 
 Select fragments are **not** listed in root `fragments`—use `*_from_fragment` in `select` instead.
 
@@ -59,9 +59,7 @@ A single model often uses both:
 ```jsonc
 {
   "fragments": ["billing_daily_incremental"],
-  "select": [
-    { "type": "all_from_fragment", "fragment": "focus_cost_columns" }
-  ]
+  "select": [{ "type": "all_from_fragment", "fragment": "focus_cost_columns" }],
 }
 ```
 

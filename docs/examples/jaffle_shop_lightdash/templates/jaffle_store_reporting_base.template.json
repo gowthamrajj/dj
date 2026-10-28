@@ -9,13 +9,21 @@
     },
     "model": {
         "type": "mart_select_model",
-        "fragments": ["jaffle_lightdash_explore"],
-        "from": { "model": "${upstream}" },
+        "fragments": [
+            "jaffle_lightdash_explore"
+        ],
+        "from": {
+            "model": "${upstream}"
+        },
         "select": [
             {
                 "type": "all_from_model",
                 "model": "${upstream}",
-                "include": ["store_id", "store_name", "order_date"]
+                "include": [
+                    "store_id",
+                    "store_name",
+                    "order_date"
+                ]
             }
         ]
     }

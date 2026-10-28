@@ -8,5 +8,10 @@
         "upstream": "stg__billing__costs__aws",
         "provider": "aws"
     },
-    "select": [{ "name": "aws_operation", "type": "dim" }]
+    "select": [
+        {
+            "name": "aws_operation",
+            "type": "dim"
+        }
+    ]
 }

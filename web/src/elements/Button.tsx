@@ -35,7 +35,7 @@ export function Button({
   const _props = {
     ...props,
     disabled: loading || props.disabled,
-    children: loading ? <Spinner size={10} /> : (children ?? label ?? ''),
+    children: loading ? <Spinner size={10} /> : children ?? label ?? '',
     type,
   };
   switch (variant) {

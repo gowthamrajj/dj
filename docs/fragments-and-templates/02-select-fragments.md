@@ -15,10 +15,10 @@ A **select fragment** is a `*.fragment.json` file with `"kind": "select"` and a 
       "type": "fct",
       "expr": "cast(billed_cost as decimal(38,10))",
       "description": "Billed cost",
-      "lightdash": { "metrics": ["sum"] }
+      "lightdash": { "metrics": ["sum"] },
     },
-    { "name": "charge_period_start", "type": "dim" }
-  ]
+    { "name": "charge_period_start", "type": "dim" },
+  ],
 }
 ```
 
@@ -31,17 +31,17 @@ In the model `select` array (or a CTE `select`):
 ```jsonc
 {
   "type": "all_from_fragment",
-  "fragment": "focus_cost_columns"
+  "fragment": "focus_cost_columns",
 }
 ```
 
 ### Variants
 
-| `type` | Includes |
-|--------|----------|
-| `all_from_fragment` | Every column in the fragment |
-| `dims_from_fragment` | Only `type: "dim"` columns |
-| `fcts_from_fragment` | Only `type: "fct"` columns |
+| `type`               | Includes                     |
+| -------------------- | ---------------------------- |
+| `all_from_fragment`  | Every column in the fragment |
+| `dims_from_fragment` | Only `type: "dim"` columns   |
+| `fcts_from_fragment` | Only `type: "fct"` columns   |
 
 ### Filter columns
 
@@ -49,7 +49,7 @@ In the model `select` array (or a CTE `select`):
 {
   "type": "dims_from_fragment",
   "fragment": "focus_cost_columns",
-  "include": ["charge_period_start"]
+  "include": ["charge_period_start"],
 }
 ```
 
@@ -57,7 +57,7 @@ In the model `select` array (or a CTE `select`):
 {
   "type": "all_from_fragment",
   "fragment": "focus_cost_columns",
-  "exclude": ["effective_cost"]
+  "exclude": ["effective_cost"],
 }
 ```
 
@@ -70,8 +70,8 @@ When the fragment’s default `expr` does not match your source column names, ov
   "type": "all_from_fragment",
   "fragment": "focus_cost_columns",
   "overrides": {
-    "billed_cost": { "expr": "cast(billedcost as decimal(38,10))" }
-  }
+    "billed_cost": { "expr": "cast(billedcost as decimal(38,10))" },
+  },
 }
 ```
 

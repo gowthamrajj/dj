@@ -180,7 +180,11 @@ export const FragmentSelectPicker: React.FC<FragmentSelectPickerProps> = ({
       )}
       <div className="flex justify-end gap-2">
         <Button variant="secondary" label="Cancel" onClick={onClose} />
-        <Button label="Done" onClick={handleApply} disabled={!selectedFragment} />
+        <Button
+          label="Done"
+          onClick={handleApply}
+          disabled={!selectedFragment}
+        />
       </div>
     </div>
   );

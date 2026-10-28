@@ -4,8 +4,17 @@
     "materialization": {
         "type": "incremental",
         "format": "iceberg",
-        "strategy": { "type": "delete+insert" }
+        "strategy": {
+            "type": "delete+insert"
+        }
     },
-    "tags": ["billing"],
-    "meta": { "owner": "finops", "sla": { "hours": 24 } }
+    "tags": [
+        "billing"
+    ],
+    "meta": {
+        "owner": "finops",
+        "sla": {
+            "hours": 24
+        }
+    }
 }

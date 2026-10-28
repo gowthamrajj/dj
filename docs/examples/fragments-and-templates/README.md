@@ -20,13 +20,13 @@ DJ discovers `*.fragment.json` and `*.template.json` anywhere under the project 
 
 ## Files
 
-| File | Role |
-|------|------|
-| [focus_cost_columns.fragment.json](focus_cost_columns.fragment.json) | Select fragment — shared cost columns |
-| [billing_daily_incremental.fragment.json](billing_daily_incremental.fragment.json) | Config fragment — incremental Iceberg + tags |
-| [focus_monthly_cost.template.json](focus_monthly_cost.template.json) | Template — monthly mart with `upstream` and `provider` params |
-| [stg__billing__costs__aws.model.json](stg__billing__costs__aws.model.json) | Staging model using config + select fragment + overrides |
-| [mart__billing__aws__monthly_cost.model.json](mart__billing__aws__monthly_cost.model.json) | Child mart extending the template |
+| File                                                                                         | Role                                                          |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [focus_cost_columns.fragment.json](focus_cost_columns.fragment.json)                         | Select fragment — shared cost columns                         |
+| [billing_daily_incremental.fragment.json](billing_daily_incremental.fragment.json)           | Config fragment — incremental Iceberg + tags                  |
+| [focus_monthly_cost.template.json](focus_monthly_cost.template.json)                         | Template — monthly mart with `upstream` and `provider` params |
+| [stg**billing**costs\_\_aws.model.json](stg__billing__costs__aws.model.json)                 | Staging model using config + select fragment + overrides      |
+| [mart**billing**aws\_\_monthly_cost.model.json](mart__billing__aws__monthly_cost.model.json) | Child mart extending the template                             |
 
 ## Try it
 

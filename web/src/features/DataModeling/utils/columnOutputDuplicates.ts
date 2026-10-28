@@ -146,8 +146,7 @@ export function resolveColumnSelectBinding(
         continue;
       }
       if ('model' in item && !('expr' in item)) {
-        const t =
-          'type' in item ? (item as { type?: string }).type : undefined;
+        const t = 'type' in item ? (item as { type?: string }).type : undefined;
         if (t && BULK_MODEL_TYPES.has(t)) {
           continue;
         }

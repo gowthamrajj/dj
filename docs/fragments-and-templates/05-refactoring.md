@@ -55,13 +55,13 @@ Use these recipes when cleaning up existing `.model.json` files—manually or wi
 
 ## Verification checklist
 
-| Check | How |
-|-------|-----|
+| Check                     | How                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
 | Authored file still small | Open `.model.json` — should still show `extends` / `*_from_fragment`, not expanded columns |
-| Resolved shape correct | CLI `model.get` → compare `resolved` to pre-change baseline |
-| SQL/YAML updated | Sync; diff `.sql` / `.yml` in git |
-| Dependencies | `dbt compile` for template `model_ref` params |
-| Lineage | Column lineage on a fragment-expanded column |
+| Resolved shape correct    | CLI `model.get` → compare `resolved` to pre-change baseline                                |
+| SQL/YAML updated          | Sync; diff `.sql` / `.yml` in git                                                          |
+| Dependencies              | `dbt compile` for template `model_ref` params                                              |
+| Lineage                   | Column lineage on a fragment-expanded column                                               |
 
 ## Common mistakes
 

@@ -6,10 +6,10 @@ Teams repeat the same `select` columns, Lightdash metrics, materialization block
 
 ## Solution: two shared file types
 
-| File | You define | Models reference it |
-|------|------------|---------------------|
+| File              | You define                                                             | Models reference it                                                |
+| ----------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `*.fragment.json` | **Select** columns (`kind: "select"`) or **config** (`kind: "config"`) | `*_from_fragment` in `select`, and/or root `"fragments": ["name"]` |
-| `*.template.json` | A reusable model body + `params` | `"extends": "template_name"` and `"with": { ... }` |
+| `*.template.json` | A reusable model body + `params`                                       | `"extends": "template_name"` and `"with": { ... }`                 |
 
 Place shared files anywhere under the dbt project; DJ discovers them on sync.
 
@@ -38,12 +38,12 @@ We call this merge step **model composition** (or **composition resolution**). U
 
 ## When to use what
 
-| Situation | Prefer |
-|-----------|--------|
-| Same column definitions on many models (FinOps columns, standard keys) | **Select fragment** |
-| Same tags, materialization, or meta on many models | **Config fragment** |
-| Same model skeleton with different upstream model or label | **Template** + children |
-| One-off model | Plain `.model.json` (no shared files) |
+| Situation                                                              | Prefer                                |
+| ---------------------------------------------------------------------- | ------------------------------------- |
+| Same column definitions on many models (FinOps columns, standard keys) | **Select fragment**                   |
+| Same tags, materialization, or meta on many models                     | **Config fragment**                   |
+| Same model skeleton with different upstream model or label             | **Template** + children               |
+| One-off model                                                          | Plain `.model.json` (no shared files) |
 
 ## When not to use shared files
 

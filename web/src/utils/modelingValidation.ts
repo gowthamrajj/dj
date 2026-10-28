@@ -225,10 +225,7 @@ export function getFirstInvalidNode(
     validations.push(validateUnionNode(modelingState));
   }
 
-  if (
-    Array.isArray(modelingState.select) &&
-    modelingState.select.length > 0
-  ) {
+  if (Array.isArray(modelingState.select) && modelingState.select.length > 0) {
     validations.push(
       validateColumnSelectionNode(columnSelectionDuplicateNames),
     );

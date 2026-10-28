@@ -2,5 +2,7 @@
     "kind": "config",
     "name": "jaffle_lightdash_explore",
     "description": "Tag Lightdash explores built from Jaffle reporting marts",
-    "tags": ["lightdash-explore"]
+    "tags": [
+        "lightdash-explore"
+    ]
 }

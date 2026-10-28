@@ -374,7 +374,9 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
             ? selectItem.exclude
             : [];
 
-        if (!modelName) {continue;}
+        if (!modelName) {
+          continue;
+        }
 
         const columns: Column[] = [];
 
@@ -640,7 +642,9 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
 
   // Filter columns based on search term
   const filteredColumns = useMemo(() => {
-    if (!searchTerm) {return columns;}
+    if (!searchTerm) {
+      return columns;
+    }
     return columns.filter(
       (column) =>
         column.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -671,11 +675,17 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
 
     // Check if we have model selections that reference seeds
     for (const selectItem of modelingState.select || []) {
-      if (typeof selectItem !== 'object' || !selectItem) {continue;}
-      if (!('model' in selectItem) || !('type' in selectItem)) {continue;}
+      if (typeof selectItem !== 'object' || !selectItem) {
+        continue;
+      }
+      if (!('model' in selectItem) || !('type' in selectItem)) {
+        continue;
+      }
 
       const modelName = selectItem.model;
-      if (!modelName) {continue;}
+      if (!modelName) {
+        continue;
+      }
 
       // Check if this model is a seed
       const seedKey = `seed.${currentProject.name}.${modelName}`;
@@ -797,7 +807,9 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
   // Handler for opening Column Lineage with a specific column
   const handleColumnLineageClick = useCallback(
     (column: Column) => {
-      if (!currentProject?.manifest) {return;}
+      if (!currentProject?.manifest) {
+        return;
+      }
 
       // For derived columns, use the current model being created
       // For columns from other models, find the source model in manifest
@@ -838,7 +850,9 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
           currentProject.manifest.sources || {},
         ).find((key) => {
           const source = currentProject.manifest.sources[key];
-          if (!source?.source_name || !source?.name) {return false;}
+          if (!source?.source_name || !source?.name) {
+            return false;
+          }
           const fullSourceName = `${source.source_name}.${source.name}`;
           return fullSourceName === column.modelName;
         });
@@ -948,12 +962,16 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
   // Handler for drag and drop reordering
   const handleDragEnd = useCallback(
     (result: DropResult) => {
-      if (!result.destination) {return;}
+      if (!result.destination) {
+        return;
+      }
 
       const sourceIndex = result.source.index;
       const destinationIndex = result.destination.index;
 
-      if (sourceIndex === destinationIndex) {return;}
+      if (sourceIndex === destinationIndex) {
+        return;
+      }
 
       // Get current select array
       const currentSelect = [...modelingState.select];
@@ -1127,8 +1145,9 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
                         modelingState.select,
                         isSelectItemDraggable,
                       );
-                      const actualSelectItem =
-                        binding.actualSelectItem as SchemaSelect | undefined;
+                      const actualSelectItem = binding.actualSelectItem as
+                        | SchemaSelect
+                        | undefined;
                       const selectIndex = binding.selectIndex;
                       const canDrag = binding.canDrag;
 
@@ -1433,7 +1452,10 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
                                 typeof actualSelectItem === 'object' && (
                                   <ColumnDetails
                                     selectItem={
-                                      actualSelectItem as Record<string, unknown>
+                                      actualSelectItem as Record<
+                                        string,
+                                        unknown
+                                      >
                                     }
                                   />
                                 )}
@@ -1456,9 +1478,7 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
           <h4 className="text-sm font-semibold text-foreground mb-4">
             Add from fragment
           </h4>
-          <FragmentSelectPicker
-            onClose={() => setShowFragmentPicker(false)}
-          />
+          <FragmentSelectPicker onClose={() => setShowFragmentPicker(false)} />
         </div>
       )}
 
@@ -1497,42 +1517,42 @@ export const ColumnSelectionNode: React.FC<NodeProps> = () => {
         !showFragmentPicker &&
         !editingColumn &&
         isAddColumnAllowed && (
-        <div className="border-t border-neutral p-4 text-center flex justify-center gap-4 bg-surface">
-          <Button
-            className="text-lg font-semibold text-foreground"
-            icon={<PlusIcon className="h-4 w-4" />}
-            variant="iconButton"
-            label="Add from fragment"
-            onClick={() => {
-              setShowAddColumnModal(false);
-              setShowFragmentPicker(true);
-            }}
-          />
-          <Button
-            className="text-lg font-semibold text-foreground"
-            icon={<PlusIcon className="h-4 w-4" />}
-            variant="iconButton"
-            label="Add Columns Manually"
-            onClick={() => {
-              if (!isPlayTutorialActive) {
-                setShowFragmentPicker(false);
-                setShowAddColumnModal(true);
+          <div className="border-t border-neutral p-4 text-center flex justify-center gap-4 bg-surface">
+            <Button
+              className="text-lg font-semibold text-foreground"
+              icon={<PlusIcon className="h-4 w-4" />}
+              variant="iconButton"
+              label="Add from fragment"
+              onClick={() => {
+                setShowAddColumnModal(false);
+                setShowFragmentPicker(true);
+              }}
+            />
+            <Button
+              className="text-lg font-semibold text-foreground"
+              icon={<PlusIcon className="h-4 w-4" />}
+              variant="iconButton"
+              label="Add Columns Manually"
+              onClick={() => {
+                if (!isPlayTutorialActive) {
+                  setShowFragmentPicker(false);
+                  setShowAddColumnModal(true);
 
-                // If assist mode is active OR assist tutorial is running, show the add-column-button guide first
-                const isAssistActive =
-                  assistModeEnabled || currentAssistStepIndex > 0;
-                if (isAssistActive) {
-                  setDataModelingGuideStep(
-                    DataModelingGuideStep.ADD_COLUMN_BUTTON,
-                  );
+                  // If assist mode is active OR assist tutorial is running, show the add-column-button guide first
+                  const isAssistActive =
+                    assistModeEnabled || currentAssistStepIndex > 0;
+                  if (isAssistActive) {
+                    setDataModelingGuideStep(
+                      DataModelingGuideStep.ADD_COLUMN_BUTTON,
+                    );
+                  }
                 }
-              }
-              // If tutorial is active, do nothing - tutorial controls this
-            }}
-            data-tutorial-id="add-column-button"
-          />
-        </div>
-      )}
+                // If tutorial is active, do nothing - tutorial controls this
+              }}
+              data-tutorial-id="add-column-button"
+            />
+          </div>
+        )}
 
       {/* Confirmation Dialog for Column Deletion */}
       <DialogBox

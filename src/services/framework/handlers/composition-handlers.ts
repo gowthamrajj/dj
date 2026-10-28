@@ -5,8 +5,8 @@ import { jsonParse } from '@shared';
 import type { ApiPayload, ApiResponse } from '@shared/api/types';
 import { apiResponse } from '@shared/api/utils';
 import type { DbtProject } from '@shared/dbt/types';
+import type { CompositionRegistry } from '@shared/framework/composition';
 import {
-  CompositionRegistry,
   FRAGMENT_SELECT_TYPES,
   resolveModelComposition,
   type SharedFileKind,
@@ -187,12 +187,7 @@ export class CompositionHandlers {
     registry.clearAllUsage();
     await Promise.all(
       modelUris.map((uri) =>
-        this.indexModelUsageAtPath(
-          project,
-          uri.fsPath,
-          registry,
-          modelExists,
-        ),
+        this.indexModelUsageAtPath(project, uri.fsPath, registry, modelExists),
       ),
     );
     this.store.markIndexed(project);
@@ -235,10 +230,7 @@ export class CompositionHandlers {
     this.store.markIndexed(project);
   }
 
-  clearModelCompositionUsage(
-    project: DbtProject,
-    modelPath: string,
-  ): void {
+  clearModelCompositionUsage(project: DbtProject, modelPath: string): void {
     if (!this.isLoaded(project)) {
       return;
     }
@@ -266,11 +258,17 @@ export class CompositionHandlers {
   ): Promise<void> {
     try {
       const raw = jsonParse(
-        (await vscode.workspace.fs.readFile(vscode.Uri.file(modelPath))).toString(),
+        (
+          await vscode.workspace.fs.readFile(vscode.Uri.file(modelPath))
+        ).toString(),
       );
-      const composition = resolveModelComposition<FrameworkModel>(raw, registry, {
-        modelExists,
-      });
+      const composition = resolveModelComposition<FrameworkModel>(
+        raw,
+        registry,
+        {
+          modelExists,
+        },
+      );
       registry.recordUsage(modelPath, composition.dependencies);
     } catch {
       registry.clearUsage(modelPath);
