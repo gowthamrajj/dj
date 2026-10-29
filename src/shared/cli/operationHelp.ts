@@ -256,7 +256,7 @@ const HELP_BY_NAME: Record<string, OperationHelp> = {
     payloadRequired: 'required',
     preferredInvoke: 'fileAndFlags',
     allowedFlags: [...MODEL_NAME_FLAGS],
-    exampleFile: 'examples/model-get.request.json',
+    exampleFile: 'docs/cli/examples/model-get.request.json',
     exampleCommand: `${DJ} model.get --modelName int__g__t__name --projectName my_project`,
   }),
   'model.columns': help({

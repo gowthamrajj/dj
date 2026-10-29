@@ -307,7 +307,7 @@ export function createOperationRegistry(): OperationRegistry {
     'model.get',
     'framework-get-model-data',
     'Read an existing model’s .model.json as { raw, resolved } (resolved expands fragments and templates). Requires { modelName }; projectName optional when a single dbt project exists.',
-    'examples/model-get.request.json',
+    'docs/cli/examples/model-get.request.json',
   );
   registerForward(
     'fragment.list',
