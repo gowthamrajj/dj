@@ -67,8 +67,7 @@ Config applies to the whole model; select fragments only affect `select`.
 
 ## Example
 
-- Fragment file: [billing_daily_incremental.fragment.json](../../examples/fragments-and-templates/billing_daily_incremental.fragment.json)
-- Jaffle demo: [jaffle_lightdash_explore.fragment.json](../../examples/jaffle_shop_lightdash/fragments/jaffle_lightdash_explore.fragment.json) on reporting marts
+- Fragment file: [jaffle_lightdash_explore.fragment.json](../../examples/jaffle_shop/fragments/jaffle_lightdash_explore.fragment.json) on reporting marts
 
 ## Next
 

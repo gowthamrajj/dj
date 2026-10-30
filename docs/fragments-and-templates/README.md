@@ -15,10 +15,9 @@ Reuse column sets and model shapes across your dbt project with **`*.fragment.js
 
 ## Example material
 
-| Resource                                                                                                     | Purpose                                                    |
-| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| [Copy-paste JSON bundle](../../examples/fragments-and-templates/README.md)                                   | FinOps billing walkthrough (fragments + template + models) |
-| [Jaffle Shop Lightdash](../../examples/jaffle_shop_lightdash/README.md#fragments--templates-in-this-project) | Fragments and template wired into the tutorial project     |
+| Resource                                                                                         | Purpose                                                |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| [Jaffle Shop example](../../examples/jaffle_shop/README.md#fragments--templates-in-this-project) | Fragments and template wired into the tutorial project |
 
 ## Related docs
 

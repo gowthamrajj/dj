@@ -87,8 +87,7 @@ On **Create model**, Basic Information includes **Template**: pick a template an
 
 ## Examples
 
-- [focus_monthly_cost.template.json](../../examples/fragments-and-templates/focus_monthly_cost.template.json) + [child model](../../examples/fragments-and-templates/mart__billing__aws__monthly_cost.model.json)
-- [Jaffle store reporting base](../../examples/jaffle_shop_lightdash/templates/jaffle_store_reporting_base.template.json)
+- [jaffle_store_reporting_base.template.json](../../examples/jaffle_shop/templates/jaffle_store_reporting_base.template.json) + [child model](../../examples/jaffle_shop/models/marts/sales/reporting/mart__sales__reporting__profitability.model.json)
 
 ## Next
 

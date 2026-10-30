@@ -37,7 +37,7 @@ Use these recipes when cleaning up existing `.model.json` files—manually or wi
 3. On each model, add `"fragments": ["my_team_defaults"]` and remove duplicated keys from the model.
 4. Sync; check generated YAML for tags and materialization.
 
-**Jaffle example:** `jaffle_lightdash_explore` on reporting marts — see [project README](../../examples/jaffle_shop_lightdash/README.md#fragments--templates-in-this-project).
+**Jaffle example:** `jaffle_lightdash_explore` on reporting marts — see [project README](../../examples/jaffle_shop/README.md#fragments--templates-in-this-project).
 
 ## Recipe 3: Model family → template + children
 

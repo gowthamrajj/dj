@@ -5,8 +5,7 @@ DJ lets you reuse **column definitions** and **model configuration** across many
 ## Start here
 
 - **[Full guide (table of contents)](fragments-and-templates/README.md)** — concepts, select/config fragments, templates, refactoring, tooling, and agents
-- **[Copy-paste JSON examples](../examples/fragments-and-templates/README.md)** — FinOps-style fixtures you can drop into any dbt project
-- **[Jaffle Shop Lightdash demo](../examples/jaffle_shop_lightdash/README.md#fragments--templates-in-this-project)** — working fragments and a template inside the example project
+- **[Jaffle Shop example](../examples/jaffle_shop/README.md#fragments--templates-in-this-project)** — working fragments and a template inside the example project
 
 ## Quick start
 

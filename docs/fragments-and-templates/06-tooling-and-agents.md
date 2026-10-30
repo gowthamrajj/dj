@@ -41,10 +41,6 @@ See [command catalog](../../templates/skills/dj-cli/references/command-catalog.m
 
 **Agent workflow:** `fragment.list` → `model.get` on a target model → edit JSONC → `model.sync` or extension sync → confirm `resolved` unchanged after refactors.
 
-## Copy-paste fixtures
+## Example project
 
-[examples/fragments-and-templates](../../examples/fragments-and-templates/README.md) — FinOps billing bundle aligned with unit tests.
-
-## Live project demo
-
-[Jaffle Shop Lightdash](../../examples/jaffle_shop_lightdash/README.md#fragments--templates-in-this-project) — fragments and template used in the tutorial tree.
+[Jaffle Shop](../../examples/jaffle_shop/README.md#fragments--templates-in-this-project) — fragments and a template used in the tutorial tree. Point `fragment.get` / `template.get` and sync checks at these files when you want a working reference.

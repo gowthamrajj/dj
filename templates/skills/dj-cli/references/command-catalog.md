@@ -39,9 +39,9 @@ Run `.dj/bin/dj system.capabilities` for the live operation list with `sideEffec
 | `dbt.model-outdated` | read | `modelName` | `.dj/bin/dj dbt.model-outdated --modelName stg__g__t__name --projectName my_project` |
 | `model.get` | read | `modelName` | `.dj/bin/dj model.get --modelName int__g__t__name --projectName my_project` (`raw` + `resolved`) |
 | `fragment.list` | read | — | `.dj/bin/dj fragment.list --projectName my_project` |
-| `fragment.get` | read | `name` | `.dj/bin/dj fragment.get --name focus_cost_columns --projectName my_project` |
+| `fragment.get` | read | `name` | `.dj/bin/dj fragment.get --name jaffle_item_line_dims --projectName my_project` |
 | `template.list` | read | — | `.dj/bin/dj template.list --projectName my_project` |
-| `template.get` | read | `name` | `.dj/bin/dj template.get --name focus_monthly_cost --projectName my_project` |
+| `template.get` | read | `name` | `.dj/bin/dj template.get --name jaffle_store_reporting_base --projectName my_project` |
 | `model.columns` | read | `modelName` | `.dj/bin/dj model.columns --file examples/model-columns.request.json` |
 | `model.similar` | read | anchors | `.dj/bin/dj model.similar --modelName int__g__t__name --projectName my_project` |
 | `lightdash.assets` | read | — | `.dj/bin/dj lightdash.assets --file examples/lightdash-assets.request.json` |

@@ -7,7 +7,7 @@
 - **Reuse column sets and model config with `*.fragment.json`.** Define `kind: "select"` or `kind: "config"` fragments; reference them from models via `*_from_fragment` in `select` and optional root `fragments`. Sync resolves fragments in memory and never rewrites your authored `.model.json`.
 - **Template models with `extends` / `with`.** Author `*.template.json` bodies with `params`; child models inherit and override via `with`, optional `fragments`, and merge/replace modes for `select` and `ctes`.
 - **IDE and CLI support.** JSON Schema and diagnostics for fragment/template files; go to definition and “Used by N models” on shared files; **DJ: Preview Resolved Model JSON** on `.model.json`; CLI `fragment.*`, `template.*`, and `model.get` with `raw` + `resolved`. “Used by” CodeLens opens a model picker; go-to-definition resolves fragment/template names after the composition registry loads.
-- **Documentation and examples.** Multi-page guide under `docs/fragments-and-templates/`, copy-paste JSON in `docs/examples/fragments-and-templates/`, and a working demo in `docs/examples/jaffle_shop_lightdash/` (config fragment, select fragment with overrides, and a template child mart).
+- **Documentation and examples.** Multi-page guide under `docs/fragments-and-templates/` and a working demo in `docs/examples/jaffle_shop/` (config fragment, select fragment with overrides, and a template child mart).
 
 ### Model Wizard
 

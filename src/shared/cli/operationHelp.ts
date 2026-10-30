@@ -226,7 +226,7 @@ const HELP_BY_NAME: Record<string, OperationHelp> = {
     payloadRequired: 'required',
     preferredInvoke: 'fileAndFlags',
     allowedFlags: [...PROJECT_FLAGS, '--name'],
-    exampleCommand: `${DJ} fragment.get --name focus_cost_columns --projectName my_project`,
+    exampleCommand: `${DJ} fragment.get --name jaffle_item_line_dims --projectName my_project`,
     payloadNotes: 'Requires JSON field "name" (fragment name).',
   }),
   'template.list': help({
@@ -245,7 +245,7 @@ const HELP_BY_NAME: Record<string, OperationHelp> = {
     payloadRequired: 'required',
     preferredInvoke: 'fileAndFlags',
     allowedFlags: [...PROJECT_FLAGS, '--name'],
-    exampleCommand: `${DJ} template.get --name focus_monthly_cost --projectName my_project`,
+    exampleCommand: `${DJ} template.get --name jaffle_store_reporting_base --projectName my_project`,
     payloadNotes: 'Requires JSON field "name" (template name).',
   }),
   'model.get': help({

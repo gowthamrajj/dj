@@ -77,7 +77,7 @@ When the fragment’s default `expr` does not match your source column names, ov
 
 `name` cannot be overridden. Other properties merge into the fragment column.
 
-See the [Jaffle item line demo](../../examples/jaffle_shop_lightdash/README.md#fragments--templates-in-this-project) for a staging model that uses a fragment plus overrides for `id` → `item_id`.
+See the [Jaffle item line demo](../../examples/jaffle_shop/README.md#fragments--templates-in-this-project) for a staging model that uses a fragment plus overrides for `id` → `item_id`.
 
 ## Combine with manual columns
 
@@ -98,9 +98,9 @@ Put `*_from_fragment` inside a CTE’s `select` the same way as model-level `sel
 
 For `stg_union_sources`, when each leg shares the same column list, define the list once in a select fragment and reference it from each leg’s model (or from a template). See [Staging union sources](../models/02%20-%20stg_union_sources.md).
 
-## FinOps walkthrough
+## Jaffle walkthrough
 
-Full files: [examples/fragments-and-templates](../../examples/fragments-and-templates/README.md).
+Full files: [fragments/jaffle_item_line_dims.fragment.json](../../examples/jaffle_shop/fragments/jaffle_item_line_dims.fragment.json) and [stg**sales**items\_\_order_details.model.json](../../examples/jaffle_shop/models/staging/sales/items/stg__sales__items__order_details.model.json).
 
 ## Next
 
