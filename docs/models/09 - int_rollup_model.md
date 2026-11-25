@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-The `int_rollup_model` is designed for creating time-based aggregations that roll up granular data to higher-level time intervals. This model type is essential for creating summary tables, performance dashboards, and time-series analytics by aggregating detailed transactional data into meaningful time periods (hourly, daily, monthly, yearly).
+The `int_rollup_model` is designed for creating time-based aggregations that roll up granular data to higher-level time intervals. This model type is essential for creating summary tables, performance dashboards, and time-series analytics by aggregating detailed transactional data into meaningful time periods (hourly, daily, weekly, monthly, yearly).
 
 ## 2. Creating with Visual Editor
 
@@ -21,7 +21,7 @@ See [Visual Editor Guide](../VISUAL_EDITOR.md) for complete canvas documentation
 
 The primary purposes of the `int_rollup_model` are:
 
-- **Time-based Aggregation:** Roll up granular data (e.g., hourly) to higher intervals (daily, monthly, yearly)
+- **Time-based Aggregation:** Roll up granular data (e.g., hourly) to higher intervals (daily, weekly, monthly, yearly)
 - **Performance Optimization:** Pre-aggregate data for faster query performance in reporting and analytics
 - **Summary Table Creation:** Generate summary views for business intelligence and dashboards
 - **Data Warehouse Optimization:** Create efficient aggregated tables for analytical workloads
@@ -40,18 +40,22 @@ An `int_rollup_model` requires the following configuration parameters:
 - **`from`:** Specifies the source model and rollup configuration:
   - **`model`:** The source model containing granular time-series data (string identifier)
   - **`rollup`:** Rollup configuration:
-    - **`interval`:** Time interval for aggregation (enum: `"day"`, `"hour"`, `"month"`, `"year"`)
+    - **`interval`:** Time interval for aggregation (enum: `"hour"`, `"day"`, `"week"`, `"month"`, `"year"`)
     - **`datetime_expr`:** Optional SQL expression for the datetime column to rollup by
 
 ## 5. Rollup Process
 
 The `int_rollup_model` performs the following transformation:
 
-1. **Time Interval Grouping:** Groups source data by the specified time interval (hour, day, month, year)
+1. **Time Interval Grouping:** Groups source data by the specified time interval (hour, day, week, month, year)
 2. **Dimension Preservation:** Maintains all dimensional attributes from the source model
 3. **Metric Aggregation:** Aggregates fact columns using appropriate functions (SUM, COUNT, AVG, etc.)
 4. **Time Truncation:** Truncates timestamps to the specified interval boundary
 5. **Result Generation:** Produces aggregated data at the target time granularity
+
+### Weekly Grain (`"interval": "week"`)
+
+Weekly rollups synthesize `portal_partition_weekly` (the week-start `date`) alongside `portal_partition_monthly` and drop finer daily/hourly partitions. Weeks that cross a calendar month boundary split into two rows (`datetime = greatest(<week_start>(datetime), date_trunc('month', datetime))`) sharing the same `portal_partition_weekly`, so weekly queries group by `portal_partition_weekly` while downstream monthly rollups over the weekly model still produce exact monthly totals. Weeks start on `"monday"` by default; set `vars.week_start_day` in `dbt_project.yml` to any weekday (`"monday"` through `"sunday"`) to customize it.
 
 ## 6. Basic Example: Daily Store Performance Rollup
 

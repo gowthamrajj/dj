@@ -212,7 +212,7 @@ export interface SchemaModelSelectFragment {
           description?: SchemaColumnDescription;
           exclude_from_group_by?: SchemaColumnExcludeFromGroupBy;
           expr?: SchemaColumnExpr;
-          interval?: 'hour' | 'day' | 'month' | 'year';
+          interval?: 'hour' | 'day' | 'week' | 'month' | 'year';
           lightdash?: SchemaColumnLightdash;
           meta?: SchemaColumnMeta;
           type?: SchemaColumnType;

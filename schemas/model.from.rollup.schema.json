@@ -9,7 +9,7 @@
     "datetime_expr": { "type": "string" },
     "interval": {
       "description": "The interval for the rollup",
-      "enum": ["day", "hour", "month", "year"]
+      "enum": ["day", "hour", "month", "week", "year"]
     }
   }
 }

@@ -35,6 +35,8 @@ export const DEFAULT_INCREMENTAL_PRE_HOOK =
 // source of truth, which reduces typo risk and makes future renames trivial.
 export const PARTITION_MONTHLY: FrameworkPartitionName =
   'portal_partition_monthly';
+export const PARTITION_WEEKLY: FrameworkPartitionName =
+  'portal_partition_weekly';
 export const PARTITION_DAILY: FrameworkPartitionName = 'portal_partition_daily';
 export const PARTITION_HOURLY: FrameworkPartitionName =
   'portal_partition_hourly';
@@ -43,9 +45,24 @@ export const PARTITION_HOURLY: FrameworkPartitionName =
 // these to drop only those partitions while keeping the rest.
 export const FRAMEWORK_PARTITIONS: FrameworkPartitionName[] = [
   PARTITION_MONTHLY,
+  PARTITION_WEEKLY,
   PARTITION_DAILY,
   PARTITION_HOURLY,
 ];
+
+export const DEFAULT_WEEK_START_DAY = 'monday' as const;
+
+export const WEEK_START_DAYS = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+] as const;
+
+export type WeekStartDay = (typeof WEEK_START_DAYS)[number];
 
 export const BULK_SELECT_TYPES = {
   ALL_FROM_MODEL: 'all_from_model',

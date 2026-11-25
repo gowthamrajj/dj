@@ -61,6 +61,7 @@ function inferFromVariant(from: CteState['from']): FromVariant {
 const ROLLUP_INTERVALS = [
   { label: 'Day', value: 'day' },
   { label: 'Hour', value: 'hour' },
+  { label: 'Week', value: 'week' },
   { label: 'Month', value: 'month' },
   { label: 'Year', value: 'year' },
 ];

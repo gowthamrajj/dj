@@ -93,3 +93,31 @@ vacuum_date_delay: int = (
 vacuum_run_limit: int = int(var("dj_etl_vacuum_run_limit", "0"))
 vacuum_run_tasks: int = int(var("dj_etl_vacuum_run_tasks", "1"))
 vacuum_run_timeout_minutes: int = int(var("dj_etl_vacuum_run_timeout_minutes", "0"))
+
+
+def _resolve_week_start_day() -> str:
+    configured = var("dj_etl_week_start_day", "").strip().lower()
+    if configured:
+        return configured
+    try:
+        import os
+        import yaml
+
+        project_yml = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            os.pardir,
+            "dbt",
+            "dbt_project.yml",
+        )
+        if os.path.exists(project_yml):
+            with open(project_yml, "r") as f:
+                data = yaml.safe_load(f) or {}
+            from_yml = data.get("vars", {}).get("week_start_day")
+            if isinstance(from_yml, str) and from_yml.strip():
+                return from_yml.strip().lower()
+    except Exception:
+        pass
+    return "monday"
+
+
+week_start_day: str = _resolve_week_start_day()

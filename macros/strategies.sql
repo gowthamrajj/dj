@@ -62,8 +62,45 @@
         {#- 4. Build the delete conditions based on the precise structural rules -#}
         {%- set delete_conditions = [] -%}
 
-        {#- Monthly rule applies if column is a partition -#}
-        {%- if 'portal_partition_monthly' in partitioned_by -%}
+        {#- Weekly rule: a table partitioned by portal_partition_weekly is rebuilt one
+            whole week at a time (the model reads every day of those weeks via
+            _ext_event_datetimes include='week'). Delete only those weeks, honoring
+            var('week_start_day', 'monday'). A week that spans two calendar months
+            holds rows across two portal_partition_monthly partitions, so the monthly
+            rule below is skipped when has_weekly is true. -#}
+        {%- set has_weekly = 'portal_partition_weekly' in partitioned_by -%}
+        {%- if has_weekly -%}
+            {%- set start_weekday = _ext_week_start_weekday() -%}
+            {%- if is_range -%}
+                {%- set first_day = modules.datetime.date.fromisoformat(start_date) -%}
+                {%- set first_week = first_day - modules.datetime.timedelta(days=(first_day.weekday() - start_weekday) % 7) -%}
+                {%- set last_day = modules.datetime.date.fromisoformat(end_date) -%}
+                {%- set last_week = last_day - modules.datetime.timedelta(days=(last_day.weekday() - start_weekday) % 7) -%}
+                {%- do delete_conditions.append("portal_partition_weekly BETWEEN DATE '" ~ first_week.isoformat() ~ "' AND DATE '" ~ last_week.isoformat() ~ "'") -%}
+            {%- else -%}
+                {%- set week_literals = [] -%}
+                {%- set week_days = date_list if is_date_list else [start_date] -%}
+                {%- for week_day in week_days -%}
+                    {%- set parsed_day = modules.datetime.date.fromisoformat(week_day) -%}
+                    {%- set week_start = (parsed_day - modules.datetime.timedelta(days=(parsed_day.weekday() - start_weekday) % 7)).isoformat() -%}
+                    {%- if week_start not in week_literals -%}
+                        {%- do week_literals.append(week_start) -%}
+                    {%- endif -%}
+                {%- endfor -%}
+                {%- if week_literals | length == 1 -%}
+                    {%- do delete_conditions.append("portal_partition_weekly = DATE '" ~ week_literals[0] ~ "'") -%}
+                {%- else -%}
+                    {%- set quoted_weeks = [] -%}
+                    {%- for week_start in week_literals -%}
+                        {%- do quoted_weeks.append("DATE '" ~ week_start ~ "'") -%}
+                    {%- endfor -%}
+                    {%- do delete_conditions.append("portal_partition_weekly IN (" ~ quoted_weeks | join(", ") ~ ")") -%}
+                {%- endif -%}
+            {%- endif -%}
+        {%- endif -%}
+
+        {#- Monthly rule applies if column is a partition (skipped when portal_partition_weekly governs the slice) -#}
+        {%- if 'portal_partition_monthly' in partitioned_by and not has_weekly -%}
             {%- if is_range -%}
                 {%- do delete_conditions.append("portal_partition_monthly BETWEEN DATE '" ~ start_month ~ "' AND DATE '" ~ end_month ~ "'") -%}
             {%- elif is_date_list -%}

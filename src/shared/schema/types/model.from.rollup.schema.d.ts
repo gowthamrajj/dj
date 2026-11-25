@@ -13,5 +13,5 @@ export interface SchemaModelFromRollup {
   /**
    * The interval for the rollup
    */
-  interval: 'day' | 'hour' | 'month' | 'year';
+  interval: 'day' | 'hour' | 'month' | 'week' | 'year';
 }

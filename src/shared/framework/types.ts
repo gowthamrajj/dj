@@ -171,7 +171,7 @@ export type FrameworkApi =
           };
           source?: string;
           rollup?: {
-            interval: 'day' | 'hour' | 'month' | 'year';
+            interval: FrameworkInterval;
           };
           join?: Array<{
             model: string;
@@ -870,7 +870,7 @@ export type FrameworkColumnInternal = {
   expr?: string;
   prefix?: string;
   exclude_from_group_by?: boolean;
-  interval?: 'day' | 'hour' | 'month' | 'year';
+  interval?: FrameworkInterval;
   override_suffix_agg?: boolean;
 };
 
@@ -891,7 +891,7 @@ export type FrameworkDataType = SchemaColumnDataType;
 // export type FrameworkDimension = SchemaModelSelectDim;
 // export type FrameworkFact = SchemaModelSelectFct;
 
-export type FrameworkInterval = 'hour' | 'day' | 'month' | 'year';
+export type FrameworkInterval = 'hour' | 'day' | 'week' | 'month' | 'year';
 
 export type FrameworkEtlSource = {
   etl_active: boolean;
@@ -949,7 +949,8 @@ export type FrameworkMetricType =
 export type FrameworkPartitionName =
   | 'portal_partition_daily'
   | 'portal_partition_hourly'
-  | 'portal_partition_monthly';
+  | 'portal_partition_monthly'
+  | 'portal_partition_weekly';
 
 // Project names are dynamic based on user's dbt_project.yml configuration
 export type FrameworkProjectName = string;

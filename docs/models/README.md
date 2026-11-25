@@ -79,9 +79,9 @@ Intermediate models implement business logic, perform aggregations, and create e
   - _Key Features_: Rolling windows, time-based aggregations, trend analysis
 
 - **[int_rollup_model](09%20-%20int_rollup_model.md)** - Time-based aggregations
-  - _Purpose_: Roll up granular data to higher time intervals
-  - _Use Case_: Daily sales rollups from hourly transaction data
-  - _Key Features_: Time interval grouping, automatic aggregation, performance optimization
+  - _Purpose_: Roll up granular data to higher time intervals (`hour`, `day`, `week`, `month`, `year`)
+  - _Use Case_: Daily or weekly sales rollups from hourly/daily transaction data, feeding exact monthly rollups
+  - _Key Features_: Time interval grouping, month-clipped weekly partitions (`portal_partition_weekly`), automatic aggregation, performance optimization
 
 ### Mart Models (Analytics-Ready Presentation Layer)
 

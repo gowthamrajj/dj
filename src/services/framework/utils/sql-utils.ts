@@ -44,6 +44,7 @@ import {
   PARTITION_DAILY,
   PARTITION_HOURLY,
   PARTITION_MONTHLY,
+  PARTITION_WEEKLY,
 } from '@shared/framework/constants';
 import { normalizeMaterializationFromLegacyRequest } from '@shared/framework/materialization';
 import type {
@@ -1064,7 +1065,7 @@ export function frameworkBuildFilters({
   excludeDailyFilterOverride,
   includeFullMonthOverride,
 }: {
-  datetimeInterval: 'hour' | 'day' | 'month' | 'year' | null;
+  datetimeInterval: FrameworkInterval | null;
   dj: DJ;
   from: { model: string } | { source: string };
   modelJson: FrameworkModel;
@@ -1099,6 +1100,11 @@ export function frameworkBuildFilters({
   const excludeDailyFilter =
     excludeDailyFilterOverride ??
     !!('exclude_daily_filter' in modelJson && modelJson.exclude_daily_filter);
+  const includeMode = includeFullMonth
+    ? 'month'
+    : datetimeInterval === 'week'
+      ? 'week'
+      : null;
 
   if (
     'model' in from &&
@@ -1111,17 +1117,42 @@ export function frameworkBuildFilters({
       modelJson,
       project,
     });
+    const hasWeeklyUpstreamPartition = partitions.some(
+      (p) => p.name === PARTITION_WEEKLY,
+    );
+    const hasDailyUpstreamPartition = partitions.some(
+      (p) => p.name === PARTITION_DAILY,
+    );
+    const widenMonthForWeek =
+      !includeFullMonth &&
+      (datetimeInterval === 'week' ||
+        (hasWeeklyUpstreamPartition && !hasDailyUpstreamPartition));
+
     for (const p of partitions) {
       const expr = `${prefix ? `${prefix}.` : ''}${p.name}`;
       const args: string[] = [`"${expr}"`, `data_type="date"`];
       switch (p.name) {
         case PARTITION_MONTHLY: {
+          if (widenMonthForWeek) {
+            args.push('include="week"');
+          }
           args.push(`interval="month"`);
+          sqlLines.push(`{{ _ext_event_date_filter(${args.join(', ')}) }}`);
+          break;
+        }
+        case PARTITION_WEEKLY: {
+          if (includeFullMonth) {
+            args.push('include="month"');
+          }
+          args.push('interval="week"');
           sqlLines.push(`{{ _ext_event_date_filter(${args.join(', ')}) }}`);
           break;
         }
         case PARTITION_DAILY: {
           if (!excludeDailyFilter && !includeFullMonth) {
+            if (datetimeInterval === 'week') {
+              args.push('include="week"');
+            }
             sqlLines.push(`{{ _ext_event_date_filter(${args.join(', ')}) }}`);
           }
           break;
@@ -1163,8 +1194,8 @@ export function frameworkBuildFilters({
       if (dialect) {
         args.push(`dialect="${dialect}"`);
       }
-      if (includeFullMonth) {
-        args.push('include="month"');
+      if (includeMode) {
+        args.push(`include="${includeMode}"`);
       }
       if (partitionDateInterval) {
         args.push(`interval="${partitionDateInterval}"`);
@@ -1188,8 +1219,8 @@ export function frameworkBuildFilters({
             `"${partition.expr.replaceAll('"', "'")}"`,
             `data_type="${partition.data_type || 'date'}"`,
           ];
-          if (includeFullMonth) {
-            args.push('include="month"');
+          if (includeMode) {
+            args.push(`include="${includeMode}"`);
           }
           if (partition.interval) {
             args.push(`interval="${partition.interval}"`);
@@ -1236,8 +1267,8 @@ export function frameworkBuildFilters({
       if (dialect) {
         args.push(`dialect="${dialect}"`);
       }
-      if (includeFullMonth) {
-        args.push('include="month"');
+      if (includeMode) {
+        args.push(`include="${includeMode}"`);
       }
       if (eventDatetimeInterval) {
         args.push(`interval="${eventDatetimeInterval}"`);
@@ -1354,6 +1385,9 @@ function applyCteRollupSelectRewrites({
     project,
   });
   const datetimeOutCol = cteOutputColumns.find((c) => c.name === 'datetime');
+  const weeklyOutCol = cteOutputColumns.find(
+    (c) => c.name === PARTITION_WEEKLY,
+  );
   // Refinement 3: forward Lightdash dimension overrides authored on the CTE
   // datetime (post-rollup-transform) into the emitted SQL via `userDimension`.
   // Without this, `frameworkBuildDatetimeColumn` would emit defaults even when
@@ -1361,6 +1395,7 @@ function applyCteRollupSelectRewrites({
   // status on the CTE itself.
   const built = frameworkBuildDatetimeColumn({
     interval: rollup.interval,
+    project,
     sourceInterval,
     userDimension: datetimeOutCol?.meta?.dimension,
   });
@@ -1368,6 +1403,10 @@ function applyCteRollupSelectRewrites({
   for (const part of selectParts) {
     if (part.name === 'datetime') {
       part.sql = built.expr ? `${built.expr} as datetime` : 'datetime';
+      continue;
+    }
+    if (part.name === PARTITION_WEEKLY && weeklyOutCol?.internal?.expr) {
+      part.sql = `${weeklyOutCol.internal.expr} as ${PARTITION_WEEKLY}`;
       continue;
     }
     if (part.sql.includes('(') || part.sql.includes(' as ')) {
@@ -1392,6 +1431,15 @@ function applyCteRollupSelectRewrites({
       baseExpr: part.sql,
       inputSuffixAgg: resolved.inputSuffixAgg,
     })} as ${resolved.outputName}`;
+  }
+
+  if (weeklyOutCol && !selectParts.some((p) => p.name === PARTITION_WEEKLY)) {
+    selectParts.push({
+      name: PARTITION_WEEKLY,
+      sql: weeklyOutCol.internal?.expr
+        ? `${weeklyOutCol.internal.expr} as ${PARTITION_WEEKLY}`
+        : PARTITION_WEEKLY,
+    });
   }
 }
 
@@ -1440,6 +1488,12 @@ export function frameworkGenerateCteSql({
     'exclude_daily_filter' in cte ? cte.exclude_daily_filter : undefined;
   const cteIncludeFullMonthOverride =
     'include_full_month' in cte ? cte.include_full_month : undefined;
+  const cteEffectiveDatetimeInterval: FrameworkInterval | null =
+    ('rollup' in from && from.rollup?.interval) ||
+    cteRegistry.get(cte.name)?.find((c) => c.name === 'datetime')?.internal
+      ?.interval ||
+    datetimeInterval ||
+    null;
 
   // UNION CTE
   if ('union' in from && from.union) {
@@ -1474,7 +1528,7 @@ export function frameworkGenerateCteSql({
         let sqlLine = `select ${selectCols} from {{ ref('${modelRef}') }}`;
         if (!shouldExcludeDateFilter && dj && modelJson) {
           const filters = frameworkBuildFilters({
-            datetimeInterval: datetimeInterval ?? null,
+            datetimeInterval: cteEffectiveDatetimeInterval,
             dj,
             from: { model: modelRef },
             modelJson,
@@ -1556,6 +1610,7 @@ export function frameworkGenerateCteSql({
           });
           const built = frameworkBuildDatetimeColumn({
             interval,
+            project,
             sourceInterval,
           });
           selectParts.push({
@@ -1792,7 +1847,7 @@ export function frameworkGenerateCteSql({
     if (modelLayer !== 'mart') {
       frameworkFilters.push(
         ...frameworkBuildFilters({
-          datetimeInterval: datetimeInterval ?? null,
+          datetimeInterval: cteEffectiveDatetimeInterval,
           dj,
           from: { model: from.model },
           modelJson,
@@ -2018,8 +2073,9 @@ function normalizeBuckets(raw: unknown): { column: string; count: number }[] {
  * Partition columns are the natural choice because incremental runs are scoped
  * by date range, so we delete+insert all rows for the processed date partition(s).
  *
- * Priority: portal_partition_daily (daily/hourly models) > portal_partition_monthly
- * (monthly models) > full partition list (custom partitions).
+ * Priority: portal_partition_daily (daily/hourly models) > portal_partition_weekly
+ * (weekly models) > portal_partition_monthly (monthly models) > full partition list
+ * (custom partitions).
  *
  * Returns a plain string when there is a single key (e.g. unique_key="col")
  * and an array when there are multiple (e.g. unique_key=["col1","col2"]).
@@ -2029,6 +2085,9 @@ function getDefaultUniqueKey(
 ): string | string[] {
   if (partitionColumnNames.includes(PARTITION_DAILY)) {
     return PARTITION_DAILY;
+  }
+  if (partitionColumnNames.includes(PARTITION_WEEKLY)) {
+    return PARTITION_WEEKLY;
   }
   if (partitionColumnNames.includes(PARTITION_MONTHLY)) {
     return PARTITION_MONTHLY;

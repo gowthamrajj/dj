@@ -101,6 +101,7 @@ const AGG_OPTIONS = [
 const INTERVAL_OPTIONS = [
   { label: 'day', value: 'day' },
   { label: 'hour', value: 'hour' },
+  { label: 'week', value: 'week' },
   { label: 'month', value: 'month' },
   { label: 'year', value: 'year' },
 ];

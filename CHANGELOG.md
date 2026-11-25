@@ -1,5 +1,12 @@
 # Change Log
 
+## 2.7.0
+
+### Framework
+
+- **Weekly rollup grain (`"interval": "week"`).** Roll up hourly or daily models and CTEs to weekly summaries with `portal_partition_weekly`, automatic full-week incremental date filters, `dj_iceberg_partition_overwrite` partition deletes, and week-split month boundaries so downstream `"month"` rollups stay exact. Weeks start on Monday by default and can be set to any weekday via `vars.week_start_day` in `dbt_project.yml`.
+- **Weekly and monthly partition compaction in Airflow `source_etl`.** The optimize step now compacts `portal_partition_weekly` tables and fixes `portal_partition_monthly` compaction, which previously exited before running `OPTIMIZE`.
+
 ## 2.6.1
 
 ### Generated runtime files

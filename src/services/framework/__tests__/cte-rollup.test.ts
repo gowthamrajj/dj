@@ -26,7 +26,7 @@ import { createTestDJ, createTestProject } from './helpers';
  */
 
 function projectWithRollupSourceModel(
-  upstreamInterval: 'hour' | 'day' | 'month' = 'day',
+  upstreamInterval: 'hour' | 'day' | 'week' | 'month' = 'day',
 ) {
   return createTestProject({
     nodes: {
@@ -124,6 +124,32 @@ describe('CTE Rollup', () => {
       expect(names).toContain('portal_partition_monthly');
       expect(names).not.toContain('portal_partition_daily');
       expect(names).not.toContain('portal_partition_hourly');
+    });
+
+    test('from.model + rollup week drops daily/hourly and synthesizes portal_partition_weekly with month-clipped datetime', () => {
+      const project = projectWithRollupSourceModel('hour');
+      const cte: FrameworkCTE = {
+        name: 'weekly_costs',
+        from: { model: 'stg_events', rollup: { interval: 'week' } },
+        select: [{ name: 'category', type: 'dim' }],
+      };
+
+      const registry = frameworkBuildCteColumnRegistry({
+        ctes: [cte],
+        project,
+      });
+      const cols = registry.get('weekly_costs')!;
+      const names = cols.map((c) => c.name);
+      const datetime = cols.find((c) => c.name === 'datetime');
+
+      expect(names).toContain('portal_partition_monthly');
+      expect(names).toContain('portal_partition_weekly');
+      expect(names).not.toContain('portal_partition_daily');
+      expect(names).not.toContain('portal_partition_hourly');
+      expect(datetime?.internal?.interval).toBe('week');
+      expect(datetime?.internal?.expr).toBe(
+        "greatest(date_trunc('week', datetime), date_trunc('month', datetime))",
+      );
     });
 
     test('rollup at hour grain keeps all three partition columns', () => {

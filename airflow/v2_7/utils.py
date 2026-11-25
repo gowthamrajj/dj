@@ -314,6 +314,23 @@ def date_to_iso(
     return date.strftime("%Y-%m-%d")
 
 
+WEEKDAY_INDEX = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+
+
+def week_start_for_date(event_date: date, week_start_day: str = "monday") -> date:
+    start_weekday = WEEKDAY_INDEX.get(week_start_day.lower(), 0)
+    days_since_start = (event_date.weekday() - start_weekday) % 7
+    return event_date - timedelta(days=days_since_start)
+
+
 def parse_dbt_results(
     event_dates: list[str], run_response: DbtRunnerResponse
 ) -> RunParsed:
@@ -1564,6 +1581,16 @@ ORDER BY
     event_date DESC
 """,
         )
+
+
+    def test_week_start_for_date(self):
+        # 2026-04-01 is a Wednesday
+        wed = date(2026, 4, 1)
+        self.assertEqual(week_start_for_date(wed), date(2026, 3, 30))
+        self.assertEqual(week_start_for_date(wed, "monday"), date(2026, 3, 30))
+        self.assertEqual(week_start_for_date(wed, "sunday"), date(2026, 3, 29))
+        self.assertEqual(week_start_for_date(wed, "wednesday"), date(2026, 4, 1))
+        self.assertEqual(week_start_for_date(wed, "thursday"), date(2026, 3, 26))
 
 
 if __name__ == "__main__":

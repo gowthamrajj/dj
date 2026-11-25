@@ -1,4 +1,5 @@
 import {
+  type CteColumnRegistry,
   filterBulkSelectColumns,
   frameworkExtractExplicitNamesFromSelect,
   frameworkPartitionsDroppedByInterval,
@@ -8,11 +9,18 @@ import {
   isJinjaExpr,
   isWindowFunctionExpr,
 } from '@services/framework/utils/column-utils';
+import { frameworkGetSourceMeta } from '@services/framework/utils/source-utils';
+import type { DbtProject } from '@shared/dbt/types';
 import {
   BULK_CTE_TYPES,
   BULK_MODEL_TYPES,
   DEFAULT_INCREMENTAL_STRATEGY,
   FRAMEWORK_PARTITIONS,
+  PARTITION_DAILY,
+  PARTITION_HOURLY,
+  PARTITION_MONTHLY,
+  PARTITION_WEEKLY,
+  WEEK_START_DAYS,
 } from '@shared/framework/constants';
 import type {
   FrameworkColumn,
@@ -1174,7 +1182,13 @@ function scopeExcludesAllPartitions(
     return false;
   }
   if (Array.isArray(individual)) {
-    return FRAMEWORK_PARTITIONS.every((p) => individual.includes(p));
+    const isWeekRollup =
+      (scope as { from?: { rollup?: { interval?: unknown } } } | null)?.from
+        ?.rollup?.interval === 'week';
+    const requiredPartitions = isWeekRollup
+      ? [PARTITION_MONTHLY, PARTITION_WEEKLY]
+      : [PARTITION_MONTHLY, PARTITION_DAILY, PARTITION_HOURLY];
+    return requiredPartitions.every((p) => individual.includes(p));
   }
   return (
     scope?.exclude_framework_artifacts === 'all' ||
@@ -2188,32 +2202,412 @@ function formatSingleError(error: ErrorObject): string {
 const VALID_ROLLUP_INTERVALS = new Set<FrameworkInterval>([
   'day',
   'hour',
+  'week',
   'month',
   'year',
 ]);
 
-/** Rejects rollup intervals outside the JSON schema enum (e.g. `week`). */
+/** Rejects rollup intervals outside the JSON schema enum. */
 export function validateRollupInterval(
   modelJson: unknown,
 ): ValidationErrorDetail[] {
   if (!modelJson || typeof modelJson !== 'object') {
     return [];
   }
+  const errors: ValidationErrorDetail[] = [];
   const from = (modelJson as { from?: { rollup?: { interval?: string } } })
     .from;
   const interval = from?.rollup?.interval;
-  if (typeof interval !== 'string') {
+  if (
+    typeof interval === 'string' &&
+    !VALID_ROLLUP_INTERVALS.has(interval as FrameworkInterval)
+  ) {
+    errors.push({
+      message: `from.rollup.interval "${interval}" is invalid (allowed: day, hour, week, month, year).`,
+      instancePath: '/from/rollup/interval',
+    });
+  }
+
+  const ctes = (
+    modelJson as { ctes?: Array<{ from?: { rollup?: { interval?: string } } }> }
+  ).ctes;
+  if (Array.isArray(ctes)) {
+    for (let i = 0; i < ctes.length; i++) {
+      const cteInterval = ctes[i]?.from?.rollup?.interval;
+      if (
+        typeof cteInterval === 'string' &&
+        !VALID_ROLLUP_INTERVALS.has(cteInterval as FrameworkInterval)
+      ) {
+        errors.push({
+          message: `ctes[${i}].from.rollup.interval "${cteInterval}" is invalid (allowed: day, hour, week, month, year).`,
+          instancePath: `/ctes/${i}/from/rollup/interval`,
+        });
+      }
+    }
+  }
+  return errors;
+}
+
+function findFirstWeekIntervalPath(modelJson: unknown): string {
+  if (!modelJson || typeof modelJson !== 'object') {
+    return '';
+  }
+  const m = modelJson as {
+    from?: { rollup?: { interval?: string } };
+    select?: Array<unknown>;
+    ctes?: Array<{
+      from?: { rollup?: { interval?: string } };
+      select?: Array<unknown>;
+    }>;
+  };
+  if (m.from?.rollup?.interval === 'week') {
+    return '/from/rollup/interval';
+  }
+  if (Array.isArray(m.select)) {
+    for (let j = 0; j < m.select.length; j++) {
+      const s = m.select[j];
+      if (
+        s &&
+        typeof s === 'object' &&
+        (s as { name?: string }).name === 'datetime' &&
+        (s as { interval?: string }).interval === 'week'
+      ) {
+        return `/select/${j}/interval`;
+      }
+    }
+  }
+  if (Array.isArray(m.ctes)) {
+    for (let i = 0; i < m.ctes.length; i++) {
+      const cte = m.ctes[i];
+      if (cte?.from?.rollup?.interval === 'week') {
+        return `/ctes/${i}/from/rollup/interval`;
+      }
+      if (Array.isArray(cte?.select)) {
+        for (let j = 0; j < cte.select.length; j++) {
+          const s = cte.select[j];
+          if (
+            s &&
+            typeof s === 'object' &&
+            (s as { name?: string }).name === 'datetime' &&
+            (s as { interval?: string }).interval === 'week'
+          ) {
+            return `/ctes/${i}/select/${j}/interval`;
+          }
+        }
+      }
+    }
+  }
+  return '';
+}
+
+/**
+ * Validates the `week_start_day` dbt project variable. Omitted or null values
+ * use the default (`monday`). Non-weekday values produce an error diagnostic.
+ */
+export function validateWeekStartDay(
+  weekStartDay: unknown,
+  modelJson?: unknown,
+): ValidationErrorDetail[] {
+  if (weekStartDay === undefined || weekStartDay === null) {
     return [];
   }
-  if (VALID_ROLLUP_INTERVALS.has(interval as FrameworkInterval)) {
+  if (
+    typeof weekStartDay === 'string' &&
+    (WEEK_START_DAYS as readonly string[]).includes(weekStartDay.toLowerCase())
+  ) {
     return [];
   }
+  const renderedValue =
+    typeof weekStartDay === 'string'
+      ? weekStartDay
+      : JSON.stringify(weekStartDay);
   return [
     {
-      message: `from.rollup.interval "${interval}" is invalid (allowed: day, hour, month, year). For Lightdash weekly reporting use a daily model with lightdash time_intervals, not a physical week rollup.`,
-      instancePath: '/from/rollup/interval',
+      message: `Invalid dbt_project.yml var "week_start_day": "${renderedValue}" (allowed: ${WEEK_START_DAYS.join(', ')}).`,
+      instancePath: findFirstWeekIntervalPath(modelJson),
+      severity: 'error',
     },
   ];
+}
+
+function inferModelManifestGrain(
+  modelName: string,
+  project?: DbtProject | null,
+): FrameworkInterval | null {
+  if (!project?.manifest?.nodes) {
+    return null;
+  }
+  const node = project.manifest.nodes[`model.${project.name}.${modelName}`];
+  if (!node?.columns) {
+    return null;
+  }
+  const cols = node.columns;
+  const dtCol = cols.datetime as
+    | {
+        meta?: {
+          interval?: unknown;
+          dimension?: { time_intervals?: unknown };
+        };
+        internal?: { interval?: unknown };
+      }
+    | undefined;
+  const rawInterval = dtCol?.meta?.interval ?? dtCol?.internal?.interval;
+  if (
+    rawInterval === 'hour' ||
+    rawInterval === 'day' ||
+    rawInterval === 'week' ||
+    rawInterval === 'month' ||
+    rawInterval === 'year'
+  ) {
+    return rawInterval;
+  }
+
+  const hasHourly = Boolean(cols[PARTITION_HOURLY]);
+  const hasDaily = Boolean(cols[PARTITION_DAILY]);
+  const hasWeekly = Boolean(cols[PARTITION_WEEKLY]);
+  const hasMonthly = Boolean(cols[PARTITION_MONTHLY]);
+  if (hasHourly) {
+    return 'hour';
+  }
+  if (hasDaily) {
+    return 'day';
+  }
+  if (hasWeekly) {
+    return 'week';
+  }
+  const timeIntervals = dtCol?.meta?.dimension?.time_intervals;
+  if (Array.isArray(timeIntervals)) {
+    const upper = new Set(
+      timeIntervals.filter((v): v is string => typeof v === 'string'),
+    );
+    if (
+      !upper.has('HOUR') &&
+      !upper.has('DAY') &&
+      !upper.has('WEEK') &&
+      upper.has('MONTH')
+    ) {
+      return 'month';
+    }
+    if (upper.size === 1 && upper.has('YEAR') && !hasMonthly) {
+      return 'year';
+    }
+  }
+  if (hasMonthly) {
+    return 'month';
+  }
+  return null;
+}
+
+function resolveUpstreamGrain(params: {
+  from: Record<string, unknown> | undefined;
+  cteByName: Map<string, Record<string, unknown>>;
+  cteColumnRegistry?: CteColumnRegistry;
+  project?: DbtProject | null;
+  visited?: Set<string>;
+}): { grain: FrameworkInterval | null; label: string } {
+  const { from, cteByName, cteColumnRegistry, project } = params;
+  const visited = params.visited ?? new Set<string>();
+  if (!from || typeof from !== 'object') {
+    return { grain: null, label: 'upstream' };
+  }
+
+  if (typeof from.cte === 'string' && from.cte) {
+    const cteName = from.cte;
+    if (visited.has(cteName)) {
+      return { grain: null, label: `CTE "${cteName}"` };
+    }
+    visited.add(cteName);
+    const cteDef = cteByName.get(cteName);
+    const cteFrom = cteDef?.from as
+      | { rollup?: { interval?: string }; cte?: string; model?: string }
+      | undefined;
+    const cteRollupInterval = cteFrom?.rollup?.interval;
+    if (
+      cteRollupInterval === 'hour' ||
+      cteRollupInterval === 'day' ||
+      cteRollupInterval === 'week' ||
+      cteRollupInterval === 'month' ||
+      cteRollupInterval === 'year'
+    ) {
+      return { grain: cteRollupInterval, label: `CTE "${cteName}"` };
+    }
+    const cteSelect = cteDef?.select;
+    if (Array.isArray(cteSelect)) {
+      for (const s of cteSelect) {
+        if (
+          s &&
+          typeof s === 'object' &&
+          (s as { name?: string }).name === 'datetime' &&
+          typeof (s as { interval?: unknown }).interval === 'string'
+        ) {
+          const selInt = (s as { interval: string }).interval;
+          if (
+            selInt === 'hour' ||
+            selInt === 'day' ||
+            selInt === 'week' ||
+            selInt === 'month' ||
+            selInt === 'year'
+          ) {
+            return { grain: selInt, label: `CTE "${cteName}"` };
+          }
+        }
+      }
+    }
+    const regCols = cteColumnRegistry?.get(cteName);
+    const regInterval = regCols?.find((c) => c.name === 'datetime')?.internal
+      ?.interval;
+    if (regInterval) {
+      return { grain: regInterval, label: `CTE "${cteName}"` };
+    }
+    if (cteFrom && typeof cteFrom === 'object') {
+      const inherited = resolveUpstreamGrain({
+        from: cteFrom,
+        cteByName,
+        cteColumnRegistry,
+        project,
+        visited,
+      });
+      return { grain: inherited.grain, label: `CTE "${cteName}"` };
+    }
+    return { grain: null, label: `CTE "${cteName}"` };
+  }
+
+  if (typeof from.model === 'string' && from.model) {
+    return {
+      grain: inferModelManifestGrain(from.model, project),
+      label: `model "${from.model}"`,
+    };
+  }
+
+  if (typeof from.source === 'string' && from.source && project) {
+    const sourceMeta = frameworkGetSourceMeta({
+      project,
+      source: from.source,
+    });
+    const srcInterval =
+      sourceMeta?.event_datetime?.interval ??
+      sourceMeta?.partition_date?.interval ??
+      null;
+    return { grain: srcInterval, label: `source "${from.source}"` };
+  }
+
+  return { grain: null, label: 'upstream' };
+}
+
+/**
+ * Rejects `week` rollups and `{ name: "datetime", interval: "week" }` selects
+ * when the upstream model, CTE, or source is already at `month` or `year`
+ * grain (cannot disaggregate a coarse grain into weeks).
+ */
+export function validateWeeklyGrainOrder(
+  modelJson: unknown,
+  project?: DbtProject | null,
+  cteColumnRegistry?: CteColumnRegistry,
+): ValidationErrorDetail[] {
+  if (!modelJson || typeof modelJson !== 'object') {
+    return [];
+  }
+  const errors: ValidationErrorDetail[] = [];
+  const m = modelJson as {
+    from?: Record<string, unknown>;
+    select?: Array<unknown>;
+    ctes?: Array<Record<string, unknown>>;
+  };
+
+  const cteByName = new Map<string, Record<string, unknown>>();
+  if (Array.isArray(m.ctes)) {
+    for (const c of m.ctes) {
+      if (c && typeof c === 'object' && typeof c.name === 'string') {
+        cteByName.set(c.name, c);
+      }
+    }
+  }
+
+  const checkTarget = (
+    upstreamFrom: Record<string, unknown> | undefined,
+    instancePath: string,
+    scopeLabel: string,
+  ) => {
+    const { grain, label } = resolveUpstreamGrain({
+      from: upstreamFrom,
+      cteByName,
+      cteColumnRegistry,
+      project,
+    });
+    if (grain === 'month' || grain === 'year') {
+      errors.push({
+        message: `${scopeLabel} cannot use "week" interval when upstream ${label} is already at "${grain}" grain.`,
+        instancePath,
+        severity: 'error',
+      });
+    }
+  };
+
+  const mainRollup = (m.from as { rollup?: { interval?: string } } | undefined)
+    ?.rollup;
+  if (mainRollup?.interval === 'week') {
+    checkTarget(m.from, '/from/rollup/interval', 'from.rollup');
+  } else if (Array.isArray(m.select)) {
+    for (let j = 0; j < m.select.length; j++) {
+      const sel = m.select[j];
+      if (
+        sel &&
+        typeof sel === 'object' &&
+        (sel as { name?: string }).name === 'datetime' &&
+        (sel as { interval?: string }).interval === 'week'
+      ) {
+        const selObj = sel as { model?: string; cte?: string };
+        const effectiveFrom = selObj.model
+          ? { model: selObj.model }
+          : selObj.cte
+            ? { cte: selObj.cte }
+            : m.from;
+        checkTarget(effectiveFrom, `/select/${j}/interval`, 'select datetime');
+      }
+    }
+  }
+
+  if (Array.isArray(m.ctes)) {
+    for (let i = 0; i < m.ctes.length; i++) {
+      const cte = m.ctes[i];
+      const cteName = typeof cte?.name === 'string' ? cte.name : `#${i}`;
+      const cteFrom = cte?.from as Record<string, unknown> | undefined;
+      const cteRollup = (
+        cteFrom as { rollup?: { interval?: string } } | undefined
+      )?.rollup;
+      if (cteRollup?.interval === 'week') {
+        checkTarget(
+          cteFrom,
+          `/ctes/${i}/from/rollup/interval`,
+          `CTE "${cteName}" from.rollup`,
+        );
+      } else if (Array.isArray(cte?.select)) {
+        for (let j = 0; j < cte.select.length; j++) {
+          const sel = cte.select[j];
+          if (
+            sel &&
+            typeof sel === 'object' &&
+            (sel as { name?: string }).name === 'datetime' &&
+            (sel as { interval?: string }).interval === 'week'
+          ) {
+            const selObj = sel as { model?: string; cte?: string };
+            const effectiveFrom = selObj.model
+              ? { model: selObj.model }
+              : selObj.cte
+                ? { cte: selObj.cte }
+                : cteFrom;
+            checkTarget(
+              effectiveFrom,
+              `/ctes/${i}/select/${j}/interval`,
+              `CTE "${cteName}" select datetime`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return errors;
 }
 
 /**

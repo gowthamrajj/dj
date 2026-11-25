@@ -27,7 +27,12 @@
         {%- endif -%}
         {%- set interval_expr -%}
             {%- if dialect == 'trino' -%}
-                date_trunc('{{ interval }}', cast({{ expr }} as date))
+                {%- set start_weekday = _ext_week_start_weekday() -%}
+                {%- if interval == 'week' and start_weekday != 0 -%}
+                    date_add('day', -((day_of_week({{ expr }}) + 7 - {{ start_weekday + 1 }}) % 7), cast({{ expr }} as date))
+                {%- else -%}
+                    date_trunc('{{ interval }}', cast({{ expr }} as date))
+                {%- endif -%}
             {%- else -%}
                 {{ expr }}
             {%- endif -%}
@@ -131,25 +136,45 @@
     {{ return(quote) }}
 {%- endmacro -%}
 
+{%- macro _ext_week_start_weekday() -%}
+    {%- set week_start_day = var('week_start_day', 'monday') | lower -%}
+    {%- set weekdays = {
+        'monday': 0,
+        'tuesday': 1,
+        'wednesday': 2,
+        'thursday': 3,
+        'friday': 4,
+        'saturday': 5,
+        'sunday': 6
+    } -%}
+    {{ return(weekdays.get(week_start_day, 0)) }}
+{%- endmacro -%}
+
 {%- macro _ext_event_date_ranges(include='', interval='day') %}
     {%- set event_datetimes = _ext_event_datetimes(include=include) -%}
+    {%- set start_weekday = _ext_week_start_weekday() -%}
     {%- set ranges = [] -%}
-    {%- set filters = [] -%}
+    {%- set seen_starts = [] -%}
     {%- for event_datetime in event_datetimes -%}
         {%- if interval == 'month' -%}
             {%- set start_iso = modules.datetime.datetime.strftime(event_datetime, '%Y-%m') ~ '-01' -%}
             {%- set start_datetime = modules.datetime.datetime.fromisoformat(start_iso) -%}
             {%- set end_datetime = start_datetime + modules.datetime.timedelta(days=31) -%}
             {%- set end_iso = modules.datetime.datetime.strftime(end_datetime, '%Y-%m') ~ '-01' -%}
-            {%- do ranges.append({
-                "start": start_iso,
-                "end": end_iso,
-            }) -%}
+        {%- elif interval == 'week' -%}
+            {%- set days_since_start = (event_datetime.weekday() - start_weekday) % 7 -%}
+            {%- set start_datetime = event_datetime - modules.datetime.timedelta(days=days_since_start) -%}
+            {%- set start_iso = modules.datetime.datetime.strftime(start_datetime, '%Y-%m-%d') -%}
+            {%- set end_datetime = start_datetime + modules.datetime.timedelta(days=7) -%}
+            {%- set end_iso = modules.datetime.datetime.strftime(end_datetime, '%Y-%m-%d') -%}
         {%- else -%}
             {%- set start_datetime = event_datetime -%}
             {%- set start_iso = modules.datetime.datetime.strftime(start_datetime, '%Y-%m-%d') -%}
             {%- set end_datetime = start_datetime + modules.datetime.timedelta(days=1) -%}
             {%- set end_iso = modules.datetime.datetime.strftime(end_datetime, '%Y-%m-%d') -%}
+        {%- endif -%}
+        {%- if start_iso not in seen_starts -%}
+            {%- do seen_starts.append(start_iso) -%}
             {%- do ranges.append({
                 "start": start_iso,
                 "end": end_iso,
@@ -161,15 +186,22 @@
 
 {%- macro _ext_event_date_string(data_type='varchar', include='', interval='day') -%}
     {%- set event_datetimes = _ext_event_datetimes(include=include) -%}
+    {%- set start_weekday = _ext_week_start_weekday() -%}
     {%- set dates = [] -%}
     {%- set prefix = _ext_data_type_prefix(data_type) -%}
     {%- for event_datetime in event_datetimes -%}
         {%- if interval == 'month' -%}
             {%- set date = prefix ~ "'" ~ modules.datetime.datetime.strftime(event_datetime,'%Y-%m') ~ "-01'" -%}
+        {%- elif interval == 'week' -%}
+            {%- set days_since_start = (event_datetime.weekday() - start_weekday) % 7 -%}
+            {%- set start_datetime = event_datetime - modules.datetime.timedelta(days=days_since_start) -%}
+            {%- set date = prefix ~ "'" ~ modules.datetime.datetime.strftime(start_datetime,'%Y-%m-%d') ~ "'" -%}
         {%- else -%}
             {%- set date = prefix ~ "'" ~ modules.datetime.datetime.strftime(event_datetime,'%Y-%m-%d') ~ "'" -%}
         {%- endif -%}
-        {%- do dates.append(date) -%}
+        {%- if date not in dates -%}
+            {%- do dates.append(date) -%}
+        {%- endif -%}
     {%- endfor -%}
     {{ return(dates|join(',')) }}
 {%- endmacro -%}
@@ -220,6 +252,24 @@
             {%- set event_month_days = (event_month_next - event_month_start).days -%}
             {%- for i in range(event_month_days) -%}
                 {%- set datetime = event_month_start + modules.datetime.timedelta(days=i) -%}
+                {%- if not datetime in datetimes -%}
+                    {%- do datetimes.append(datetime) -%}
+                {%- endif -%}
+            {%- endfor -%}
+        {%- endfor -%}
+    {%- elif include == "week" -%}
+        {%- set start_weekday = _ext_week_start_weekday() -%}
+        {%- set event_week_starts = [] -%}
+        {%- for datetime in datetimes -%}
+            {%- set days_since_start = (datetime.weekday() - start_weekday) % 7 -%}
+            {%- set event_week_start = datetime - modules.datetime.timedelta(days=days_since_start) -%}
+            {%- if not event_week_start in event_week_starts -%}
+                {%- do event_week_starts.append(event_week_start) -%}
+            {%- endif -%}
+        {%- endfor -%}
+        {%- for event_week_start in event_week_starts -%}
+            {%- for i in range(7) -%}
+                {%- set datetime = event_week_start + modules.datetime.timedelta(days=i) -%}
                 {%- if not datetime in datetimes -%}
                     {%- do datetimes.append(datetime) -%}
                 {%- endif -%}

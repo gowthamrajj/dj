@@ -81,14 +81,17 @@ Auto-generated `count(*)` for row tracking. Exclude with `"exclude_portal_source
 
 ### Partition Columns
 
-Created from `interval` on datetime columns:
+Created from `interval` on datetime columns and rollups (coarsest-to-finest grain order: `year`, `month`, `week`, `day`, `hour`):
 
-| Interval  | Generated Column                 |
-| --------- | -------------------------------- |
-| `"day"`   | `portal_partition_daily`         |
-| `"hour"`  | `portal_partition_hourly`        |
-| `"month"` | `portal_partition_monthly`       |
-| `"year"`  | (none — only truncates datetime) |
+| Interval  | Generated Column                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| `"hour"`  | `portal_partition_hourly` (plus daily & monthly)                                                 |
+| `"day"`   | `portal_partition_daily` (plus monthly)                                                          |
+| `"week"`  | `portal_partition_weekly` (rollup models/CTEs only; keeps `portal_partition_monthly`, drops daily/hourly) |
+| `"month"` | `portal_partition_monthly` (drops weekly, daily, hourly)                                         |
+| `"year"`  | (none — truncates `datetime` and drops all finer partitions)                                     |
+
+For `"week"` rollups, `unique_key` auto-derives in priority order `portal_partition_daily` → `portal_partition_weekly` → `portal_partition_monthly`, and week start defaults to `"monday"` (configurable via `vars.week_start_day` in `dbt_project.yml`). Raw sources do not inject `portal_partition_weekly`.
 
 Drop all of them with `"exclude_portal_partition_columns": true`, or drop any
 subset with an array, e.g. `"exclude_portal_partition_columns": ["portal_partition_hourly"]`

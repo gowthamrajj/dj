@@ -30,6 +30,8 @@ import {
   validateMaterializationPartitionsExist,
   validatePartitionStrategyWithoutPartitions,
   validateRollupOutputColumns,
+  validateWeeklyGrainOrder,
+  validateWeekStartDay,
 } from '@services/modelValidation';
 import { jsonParse } from '@shared';
 import type { DbtProject } from '@shared/dbt/types';
@@ -250,6 +252,29 @@ export class ModelProcessor {
         }
       }
 
+      const weeklyGrainErrors = validateWeeklyGrainOrder(
+        modelJson,
+        project,
+        cteColumnRegistry,
+      );
+      if (weeklyGrainErrors.length > 0) {
+        for (const e of weeklyGrainErrors) {
+          this.config.logger.error(`${modelName}: ${e.message}`);
+          validationWarnings.push(e);
+        }
+      }
+
+      const weekStartDayErrors = validateWeekStartDay(
+        project.variables?.week_start_day,
+        modelJson,
+      );
+      if (weekStartDayErrors.length > 0) {
+        for (const e of weekStartDayErrors) {
+          this.config.logger.error(`${modelName}: ${e.message}`);
+          validationWarnings.push(e);
+        }
+      }
+
       // Partition-strategy sanity check: incremental + a partition-based
       // strategy on a model whose resolved column shape has no partition
       // column. Warning-only so it doesn't block sync (false positives are
@@ -311,23 +336,11 @@ export class ModelProcessor {
         }
       }
 
-      // Reserved-key lint for model/column meta. Emitted as positioned
-      // Warning-severity diagnostics via a separate callback so they append
-      // to any diagnostics already posted (e.g. CTE warnings above).
+      // Reserved-key lint for model/column meta. Emitted after the primary
+      // warning/clear pass so prior diagnostics are cleared when fixed and
+      // co-existing lint warnings append cleanly without being overwritten.
       const metaLintWarnings = collectModelMetaLintWarnings(modelJson);
       const hasMetaLintWarnings = metaLintWarnings.length > 0;
-      if (hasMetaLintWarnings) {
-        for (const w of metaLintWarnings) {
-          this.config.logger.warn?.(
-            `${modelName}: ${w.instancePath} ${w.message}`,
-          );
-        }
-        this.callbacks.onModelValidationLintWarnings?.(
-          newJsonUri,
-          mapDetailsToModelFile(metaLintWarnings, provenance),
-          jsonContent,
-        );
-      }
 
       const positionedWarnings = [
         ...(composition?.warnings ?? []),
@@ -343,8 +356,21 @@ export class ModelProcessor {
           positionedWarnings,
           jsonContent,
         );
-      } else if (!hasMetaLintWarnings) {
+      } else {
         this.callbacks.onDiagnosticsClear?.(newJsonUri);
+      }
+
+      if (hasMetaLintWarnings) {
+        for (const w of metaLintWarnings) {
+          this.config.logger.warn?.(
+            `${modelName}: ${w.instancePath} ${w.message}`,
+          );
+        }
+        this.callbacks.onModelValidationLintWarnings?.(
+          newJsonUri,
+          mapDetailsToModelFile(metaLintWarnings, provenance),
+          jsonContent,
+        );
       }
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));

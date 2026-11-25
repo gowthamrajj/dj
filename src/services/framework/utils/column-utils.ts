@@ -19,12 +19,16 @@ import {
   BULK_CTE_TYPES,
   BULK_MODEL_TYPES,
   BULK_SELECT_TYPES,
+  DEFAULT_WEEK_START_DAY,
   DIMS_BULK_TYPES,
   FCTS_BULK_TYPES,
   FRAMEWORK_PARTITIONS,
   PARTITION_DAILY,
   PARTITION_HOURLY,
   PARTITION_MONTHLY,
+  PARTITION_WEEKLY,
+  WEEK_START_DAYS,
+  type WeekStartDay,
 } from '@shared/framework/constants';
 import type {
   FrameworkColumn,
@@ -280,6 +284,7 @@ export function frameworkProcessSelected({
         const built = frameworkBuildDatetimeColumn({
           interval: selected.interval,
           prefix,
+          project,
           sourceInterval,
           userDimension: selected.lightdash?.dimension,
         });
@@ -367,7 +372,7 @@ export function frameworkBuildColumns({
   // Track which columns are inherited (vs explicitly selected) for column-level metric filtering
   const inheritedColumnNames = new Set<string>();
 
-  let datetimeInterval: 'hour' | 'day' | 'month' | 'year' | null = null;
+  let datetimeInterval: FrameworkInterval | null = null;
 
   // HANDLE ROLLUP SETUP (datetime column + partition exclusions)
   // This runs whenever from.rollup is present, regardless of whether select exists.
@@ -714,6 +719,14 @@ export function frameworkBuildColumns({
   const userExplicitColumnNames =
     frameworkExtractUserExplicitColumnNames(modelJson);
 
+  if (!datetimeInterval) {
+    // If we didn't declare a rollup interval, derive it from any selected datetime interval column
+    const datetimeIntervalColumn = columns.find((c) =>
+      c.name === 'datetime' ? c.internal?.interval || undefined : null,
+    );
+    datetimeInterval = datetimeIntervalColumn?.internal?.interval || null;
+  }
+
   if (baseSource) {
     const sourceDateColumns = frameworkBuildSourceDateColumns({
       columns,
@@ -723,13 +736,15 @@ export function frameworkBuildColumns({
     columns.push(...sourceDateColumns);
   } else if (baseModel) {
     const exclude: FrameworkDims[] = [];
-    if (!datetimeInterval) {
-      // If we didn't select a datetime interval column, we'll inherit it from the base model
-      const datetimeIntervalColumn = columns.find((c) =>
-        c.name === 'datetime' ? c.internal?.interval || undefined : null,
-      );
-      datetimeInterval = datetimeIntervalColumn?.internal?.interval || null;
-    }
+    const effectiveInterval =
+      datetimeInterval ||
+      frameworkGetNodeColumns({
+        from: { model: baseModel },
+        include: ['datetime'],
+        project,
+        useCsvFallback: false,
+      }).columns[0]?.internal?.interval ||
+      null;
     if (datetimeInterval) {
       exclude.push(
         ...frameworkGetRollupInputs({
@@ -740,23 +755,8 @@ export function frameworkBuildColumns({
           rollup: { interval: datetimeInterval },
         }).exclude,
       );
-    }
-    switch (datetimeInterval) {
-      case 'day': {
-        exclude.push(PARTITION_HOURLY);
-        break;
-      }
-      case 'month': {
-        exclude.push(PARTITION_DAILY);
-        exclude.push(PARTITION_HOURLY);
-        break;
-      }
-      case 'year': {
-        exclude.push(PARTITION_MONTHLY);
-        exclude.push(PARTITION_HOURLY);
-        exclude.push(PARTITION_DAILY);
-        break;
-      }
+    } else if (effectiveInterval) {
+      exclude.push(...frameworkPartitionsDroppedByInterval(effectiveInterval));
     }
 
     // By default, we include the datetime and partition columns when selecting from models, unless we're doing a lookback
@@ -767,6 +767,7 @@ export function frameworkBuildColumns({
         include: [
           'datetime',
           PARTITION_MONTHLY,
+          PARTITION_WEEKLY,
           PARTITION_DAILY,
           PARTITION_HOURLY,
         ],
@@ -804,36 +805,18 @@ export function frameworkBuildColumns({
     // further below applies uniformly, so opt-out semantics match.
     const cteCols = cteColumnRegistry.get(baseCte) ?? [];
     if (!datetimeInterval) {
-      // Prefer interval declared on prior select-derived columns; fall back
-      // to the upstream CTE registry's datetime column (mirrors the manifest
-      // fallback in the baseModel branch).
-      const datetimeIntervalColumn = columns.find((c) =>
-        c.name === 'datetime' ? c.internal?.interval || undefined : null,
-      );
+      // Fall back to the upstream CTE registry's datetime column (mirrors the
+      // manifest fallback in the baseModel branch).
       datetimeInterval =
-        datetimeIntervalColumn?.internal?.interval ||
-        cteCols.find((c) => c.name === 'datetime')?.internal?.interval ||
-        null;
+        cteCols.find((c) => c.name === 'datetime')?.internal?.interval || null;
     }
-    const excludedByInterval = new Set<string>();
-    switch (datetimeInterval) {
-      case 'day':
-        excludedByInterval.add(PARTITION_HOURLY);
-        break;
-      case 'month':
-        excludedByInterval.add(PARTITION_DAILY);
-        excludedByInterval.add(PARTITION_HOURLY);
-        break;
-      case 'year':
-        excludedByInterval.add(PARTITION_MONTHLY);
-        excludedByInterval.add(PARTITION_HOURLY);
-        excludedByInterval.add(PARTITION_DAILY);
-        break;
-    }
+    const excludedByInterval =
+      frameworkPartitionsDroppedByInterval(datetimeInterval);
 
     const wantedFrameworkDims = new Set<string>([
       'datetime',
       PARTITION_MONTHLY,
+      PARTITION_WEEKLY,
       PARTITION_DAILY,
       PARTITION_HOURLY,
     ]);
@@ -843,7 +826,7 @@ export function frameworkBuildColumns({
         (c) =>
           wantedFrameworkDims.has(c.name) &&
           !alreadyPresent.has(c.name) &&
-          !excludedByInterval.has(c.name),
+          !excludedByInterval.has(c.name as FrameworkPartitionName),
       )
       // Clone before handing off -- `frameworkInheritColumn` mutates its
       // input, and these entries are shared with the persisted CTE registry.
@@ -1117,16 +1100,21 @@ export function frameworkGetCteDatetimeSourceInterval({
 const EMPTY_PARTITION_SET: ReadonlySet<FrameworkPartitionName> = new Set();
 
 // Partition grains the framework auto-drops at each coarsened `datetime` grain.
-// Coarsest-to-finest: `day` drops hourly, `month` drops daily + hourly, `year`
-// drops all three; `hour` drops nothing.
+// Coarsest-to-finest: `year`, `month`, `week`, `day`, `hour`.
 const PARTITIONS_DROPPED_BY_INTERVAL: Record<
   FrameworkInterval,
   ReadonlySet<FrameworkPartitionName>
 > = {
   hour: EMPTY_PARTITION_SET,
   day: new Set([PARTITION_HOURLY]),
-  month: new Set([PARTITION_DAILY, PARTITION_HOURLY]),
-  year: new Set([PARTITION_MONTHLY, PARTITION_DAILY, PARTITION_HOURLY]),
+  week: new Set([PARTITION_DAILY, PARTITION_HOURLY]),
+  month: new Set([PARTITION_WEEKLY, PARTITION_DAILY, PARTITION_HOURLY]),
+  year: new Set([
+    PARTITION_MONTHLY,
+    PARTITION_WEEKLY,
+    PARTITION_DAILY,
+    PARTITION_HOURLY,
+  ]),
 };
 
 /**
@@ -1185,11 +1173,12 @@ function frameworkApplyCteRollupTransform(
   ctx: {
     cte: FrameworkCTE;
     cteRegistry: CteColumnRegistry;
+    modelJson?: FrameworkModel;
     project: DbtProject;
     rollup: { interval: FrameworkInterval };
   },
 ): FrameworkColumn[] {
-  const { cte, cteRegistry, project, rollup } = ctx;
+  const { cte, cteRegistry, modelJson, project, rollup } = ctx;
   const sourceInterval = frameworkGetCteDatetimeSourceInterval({
     cteRegistry,
     from: cte.from,
@@ -1202,6 +1191,7 @@ function frameworkApplyCteRollupTransform(
     if (col.name === 'datetime') {
       const built = frameworkBuildDatetimeColumn({
         interval: rollup.interval,
+        project,
         sourceInterval,
         userDimension: col.meta.dimension,
       });
@@ -1241,6 +1231,7 @@ function frameworkApplyCteRollupTransform(
     const sourceDt = sourceColMap.get('datetime');
     const built = frameworkBuildDatetimeColumn({
       interval: rollup.interval,
+      project,
       sourceInterval,
       userDimension: sourceDt?.meta?.dimension,
     });
@@ -1273,6 +1264,25 @@ function frameworkApplyCteRollupTransform(
           internal,
         };
     result.unshift(datetimeCol);
+  }
+
+  if (
+    rollup.interval === 'week' &&
+    !result.some((c) => c.name === PARTITION_WEEKLY)
+  ) {
+    const excludedPartitionSet = frameworkResolveExcludedPartitionColumns(
+      cte,
+      modelJson ?? null,
+      FRAMEWORK_PARTITIONS,
+    );
+    if (!excludedPartitionSet.has(PARTITION_WEEKLY)) {
+      result.push(
+        frameworkBuildWeeklyPartitionColumn({
+          expr: 'datetime',
+          project,
+        }),
+      );
+    }
   }
 
   return result;
@@ -1424,6 +1434,7 @@ export function frameworkInferCteColumns({
         const sourceInterval = sourceCol?.internal?.interval ?? null;
         const built = frameworkBuildDatetimeColumn({
           interval,
+          project,
           sourceInterval,
           userDimension: (
             sel.lightdash as { dimension?: Partial<LightdashDimension> }
@@ -1633,6 +1644,7 @@ export function frameworkInferCteColumns({
     return frameworkApplyCteRollupTransform(columns, {
       cte,
       cteRegistry,
+      modelJson,
       project,
       rollup,
     });
@@ -2117,21 +2129,7 @@ export function frameworkShouldAutoInjectCteFrameworkDims({
     }
   }
 
-  const excluded = new Set<string>();
-  switch (datetimeInterval) {
-    case 'day':
-      excluded.add(PARTITION_HOURLY);
-      break;
-    case 'month':
-      excluded.add(PARTITION_DAILY);
-      excluded.add(PARTITION_HOURLY);
-      break;
-    case 'year':
-      excluded.add(PARTITION_MONTHLY);
-      excluded.add(PARTITION_DAILY);
-      excluded.add(PARTITION_HOURLY);
-      break;
-  }
+  const excluded = frameworkPartitionsDroppedByInterval(datetimeInterval);
 
   // Per-CTE opt-outs: `exclude_portal_partition_columns` suppresses the
   // partition columns and `exclude_datetime` suppresses the `datetime`
@@ -2163,7 +2161,7 @@ export function frameworkShouldAutoInjectCteFrameworkDims({
   }
   const alreadyPresent = new Set(alreadyPresentNames);
   const missing = candidates.filter(
-    (c) => !alreadyPresent.has(c) && !excluded.has(c),
+    (c) => !alreadyPresent.has(c) && !excluded.has(c as FrameworkPartitionName),
   );
   if (missing.length === 0) {
     return null;
@@ -2376,14 +2374,90 @@ export function frameworkResolveAgg({
  * Consumed by: main-model `frameworkProcessSelected`, CTE SQL generator,
  * CTE registry.
  */
+const WEEK_START_ISO_DOW: Record<WeekStartDay, number> = {
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+  sunday: 7,
+};
+
+/**
+ * Resolves the configured `week_start_day` dbt project variable, falling back
+ * to `'monday'` (ISO / Trino `date_trunc('week', ...)` default) when unset or
+ * unrecognized.
+ */
+export function frameworkResolveWeekStartDay(
+  project?: DbtProject | null,
+): WeekStartDay {
+  const raw = project?.variables?.week_start_day;
+  if (typeof raw === 'string') {
+    const normalized = raw.toLowerCase() as WeekStartDay;
+    if ((WEEK_START_DAYS as readonly string[]).includes(normalized)) {
+      return normalized;
+    }
+  }
+  return DEFAULT_WEEK_START_DAY;
+}
+
+/**
+ * Builds the SQL expression for the start of the week containing `expr`.
+ * Uses Trino's native `date_trunc('week', ...)` for Monday (ISO week start)
+ * and `date_add('day', -((day_of_week(x) + 7 - S) % 7), cast(x as date))` for
+ * any other configured `week_start_day`.
+ */
+export function frameworkWeekStartExpr(
+  expr: string,
+  project?: DbtProject | null,
+  options?: { asDate?: boolean },
+): string {
+  const day = frameworkResolveWeekStartDay(project);
+  if (day === 'monday') {
+    return options?.asDate
+      ? `date_trunc('week', cast(${expr} as date))`
+      : `date_trunc('week', ${expr})`;
+  }
+  const startIso = WEEK_START_ISO_DOW[day];
+  return `date_add('day', -((day_of_week(${expr}) + 7 - ${startIso}) % 7), cast(${expr} as date))`;
+}
+
+/**
+ * Synthesizes the `portal_partition_weekly` partition column for week-grain
+ * rollup models and CTEs.
+ */
+export function frameworkBuildWeeklyPartitionColumn({
+  expr,
+  project,
+}: {
+  expr: string;
+  project?: DbtProject | null;
+}): FrameworkColumn {
+  return {
+    name: PARTITION_WEEKLY,
+    data_type: 'date',
+    description: 'Weekly Partition Column',
+    meta: {
+      type: 'dim',
+      dimension: { label: 'Portal Partition Weekly' },
+    },
+    internal: {
+      expr: frameworkWeekStartExpr(expr, project, { asDate: true }),
+    },
+  };
+}
+
 export function frameworkBuildDatetimeColumn({
   interval,
   prefix,
+  project,
   sourceInterval,
   userDimension,
 }: {
   interval: FrameworkInterval;
   prefix?: string | null;
+  project?: DbtProject | null;
   sourceInterval?: FrameworkInterval | null;
   userDimension?: Partial<LightdashDimension>;
 }): {
@@ -2408,6 +2482,11 @@ export function frameworkBuildDatetimeColumn({
       timeIntervals.push('WEEK');
       break;
     }
+    case 'week': {
+      timeIntervals.push('MONTH');
+      timeIntervals.push('WEEK');
+      break;
+    }
     case 'month': {
       timeIntervals.push('MONTH');
       break;
@@ -2425,7 +2504,9 @@ export function frameworkBuildDatetimeColumn({
   const shouldTrunc = sourceInterval !== interval;
   const prefixedName = prefix ? `${prefix}.datetime` : 'datetime';
   const expr = shouldTrunc
-    ? `date_trunc('${interval}', ${prefixedName})`
+    ? interval === 'week'
+      ? `greatest(${frameworkWeekStartExpr(prefixedName, project)}, date_trunc('month', ${prefixedName}))`
+      : `date_trunc('${interval}', ${prefixedName})`
     : null;
 
   return { dimension, expr, interval };
@@ -2694,14 +2775,18 @@ export function frameworkGetNodeColumns({
         override_suffix_agg: _overrideSuffixAgg,
         ...meta
       } = rawMeta as Record<string, unknown>;
+      const rawInterval =
+        interval ??
+        (c as { internal?: { interval?: unknown } }).internal?.interval;
       const internal: FrameworkColumn['internal'] = {};
       if (
-        interval === 'day' ||
-        interval === 'hour' ||
-        interval === 'month' ||
-        interval === 'year'
+        rawInterval === 'day' ||
+        rawInterval === 'hour' ||
+        rawInterval === 'week' ||
+        rawInterval === 'month' ||
+        rawInterval === 'year'
       ) {
-        internal.interval = interval;
+        internal.interval = rawInterval;
       }
       columns.push({
         name,
@@ -2738,7 +2823,7 @@ export function frameworkGetRollupInputs({
   model: string;
   modelJson: FrameworkModel;
   project: DbtProject;
-  rollup: { interval: 'hour' | 'day' | 'month' | 'year' };
+  rollup: { interval: FrameworkInterval };
 }): {
   columns: FrameworkColumn[];
   exclude: FrameworkDims[];
@@ -2750,49 +2835,55 @@ export function frameworkGetRollupInputs({
     project,
   }).columns[0];
   const columns: FrameworkColumn[] = [];
-  const exclude: ('datetime' | FrameworkPartitionName)[] = ['datetime'];
+  const exclude: ('datetime' | FrameworkPartitionName)[] = [
+    'datetime',
+    ...frameworkPartitionsDroppedByInterval(rollup.interval),
+  ];
   const partitions: FrameworkPartitionName[] = [
     PARTITION_MONTHLY,
+    PARTITION_WEEKLY,
     PARTITION_DAILY,
     PARTITION_HOURLY,
   ];
 
-  let newDatetimeExpr = '';
+  const joinPrefix =
+    'join' in modelJson.from &&
+    modelJson.type !== 'int_join_column' &&
+    Array.isArray(modelJson.from.join) &&
+    modelJson.from.join.length
+      ? model
+      : null;
 
-  switch (rollup.interval) {
-    case 'hour':
-      newDatetimeExpr = "date_trunc('hour', datetime)";
-      break;
-    case 'day':
-      exclude.push(PARTITION_HOURLY);
-      newDatetimeExpr = "date_trunc('day', datetime)";
-      break;
-    case 'month':
-      exclude.push(PARTITION_DAILY);
-      exclude.push(PARTITION_HOURLY);
-      newDatetimeExpr = "date_trunc('month', datetime)";
-      break;
-    case 'year':
-      exclude.push(PARTITION_DAILY);
-      exclude.push(PARTITION_HOURLY);
-      exclude.push(PARTITION_MONTHLY);
-      newDatetimeExpr = "date_trunc('year', datetime)";
-      break;
+  columns.push(
+    ...frameworkProcessSelected({
+      existingColumns: columns,
+      dj,
+      fromColumn: fromDatetime,
+      modelJson,
+      modelMetrics: {},
+      prefix: joinPrefix,
+      project,
+      selected: { name: 'datetime', interval: rollup.interval },
+    }).columns,
+  );
+
+  if (rollup.interval === 'week') {
+    const upstreamWeekly = frameworkGetNodeColumns({
+      from: { model },
+      include: [PARTITION_WEEKLY],
+      project,
+      useCsvFallback: false,
+    }).columns[0];
+    if (!upstreamWeekly) {
+      columns.push(
+        frameworkBuildWeeklyPartitionColumn({
+          expr: joinPrefix ? `${joinPrefix}.datetime` : 'datetime',
+          project,
+        }),
+      );
+    }
   }
-  if (newDatetimeExpr) {
-    columns.push(
-      ...frameworkProcessSelected({
-        existingColumns: columns,
-        dj,
-        fromColumn: fromDatetime,
-        modelJson,
-        modelMetrics: {},
-        prefix: null,
-        project,
-        selected: { name: 'datetime', interval: rollup.interval },
-      }).columns,
-    );
-  }
+
   return {
     columns,
     exclude,
@@ -2812,14 +2903,19 @@ export function frameworkGetModelPartitions({
   model,
   modelJson,
 }: {
-  datetimeInterval: 'hour' | 'day' | 'month' | 'year' | null;
+  datetimeInterval: FrameworkInterval | null;
   dj: DJ;
   project: DbtProject;
   model: string;
   modelJson: FrameworkModel;
 }): FrameworkColumn[] {
   const exclude: FrameworkDims[] = [];
-  if (datetimeInterval) {
+  if (datetimeInterval === 'week') {
+    // Keep upstream `portal_partition_daily` when filtering a daily parent for
+    // a week-grain model so `frameworkBuildFilters` can attach `include="week"`
+    // and prune to the 7 days of the week instead of scanning full months.
+    exclude.push('datetime', PARTITION_HOURLY);
+  } else if (datetimeInterval) {
     exclude.push(
       ...frameworkGetRollupInputs({
         dj,
@@ -2833,7 +2929,12 @@ export function frameworkGetModelPartitions({
   const from = frameworkGetNodeColumns({
     exclude,
     from: { model },
-    include: [PARTITION_MONTHLY, PARTITION_DAILY, PARTITION_HOURLY],
+    include: [
+      PARTITION_MONTHLY,
+      PARTITION_WEEKLY,
+      PARTITION_DAILY,
+      PARTITION_HOURLY,
+    ],
     project,
   });
   return from.columns;
@@ -3067,6 +3168,64 @@ export function frameworkSuffixAgg(name: string): FrameworkColumnAgg | null {
   return FRAMEWORK_AGGS.includes(suffix) ? suffix : null;
 }
 
+function modelUsesWeeklyGrain(
+  modelJson: FrameworkModel,
+  project: DbtProject,
+): boolean {
+  if (
+    'rollup' in modelJson.from &&
+    modelJson.from.rollup?.interval === 'week'
+  ) {
+    return true;
+  }
+  if (
+    'select' in modelJson &&
+    Array.isArray(modelJson.select) &&
+    modelJson.select.some(
+      (s) =>
+        typeof s === 'object' &&
+        s !== null &&
+        'name' in s &&
+        s.name === 'datetime' &&
+        'interval' in s &&
+        s.interval === 'week',
+    )
+  ) {
+    return true;
+  }
+  if (
+    'ctes' in modelJson &&
+    Array.isArray(modelJson.ctes) &&
+    modelJson.ctes.some(
+      (c) =>
+        ('rollup' in c.from && c.from.rollup?.interval === 'week') ||
+        c.select?.some(
+          (s) =>
+            typeof s === 'object' &&
+            s !== null &&
+            'name' in s &&
+            s.name === 'datetime' &&
+            'interval' in s &&
+            s.interval === 'week',
+        ),
+    )
+  ) {
+    return true;
+  }
+  if ('model' in modelJson.from && modelJson.from.model) {
+    const parentWeekly = frameworkGetNodeColumns({
+      from: { model: modelJson.from.model },
+      include: [PARTITION_WEEKLY],
+      project,
+      useCsvFallback: false,
+    }).columns[0];
+    if (parentWeekly) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Get partition column names for a model
  *
@@ -3092,13 +3251,35 @@ export function frameworkGetPartitionColumnNames({
     ('partitioned_by' in modelJson && modelJson.partitioned_by);
   const partitionColumnsDefault: FrameworkPartitionName[] = [
     PARTITION_MONTHLY,
+    PARTITION_WEEKLY,
     PARTITION_DAILY,
     PARTITION_HOURLY,
   ];
-  // Set in order of priority
-  const partitionColumnNames =
-    partitionColumnsModel || partitionColumnsParent || partitionColumnsDefault;
-  return partitionColumnNames;
+  if (partitionColumnsModel) {
+    return partitionColumnsModel;
+  }
+  if (partitionColumnsParent) {
+    if (
+      !partitionColumnsParent.includes(PARTITION_WEEKLY) &&
+      modelUsesWeeklyGrain(modelJson, project)
+    ) {
+      const copy = [...partitionColumnsParent];
+      const monthlyIdx = copy.indexOf(PARTITION_MONTHLY);
+      if (monthlyIdx >= 0) {
+        copy.splice(monthlyIdx + 1, 0, PARTITION_WEEKLY);
+      } else {
+        const dailyIdx = copy.indexOf(PARTITION_DAILY);
+        if (dailyIdx >= 0) {
+          copy.splice(dailyIdx, 0, PARTITION_WEEKLY);
+        } else {
+          copy.push(PARTITION_WEEKLY);
+        }
+      }
+      return copy;
+    }
+    return partitionColumnsParent;
+  }
+  return partitionColumnsDefault;
 }
 
 /**

@@ -19,6 +19,8 @@ import {
   validateCtes,
   validateRollupInterval,
   validateRollupOutputColumns,
+  validateWeeklyGrainOrder,
+  validateWeekStartDay,
 } from '@services/modelValidation';
 import { requireProject, safeAsync } from '@services/types';
 import { jsonParse, removeEmpty } from '@shared';
@@ -150,6 +152,18 @@ export class ModelCrudHandlers {
       const error = new Error('Invalid rollup interval');
       (error as Error & { details?: string[] }).details =
         rollupIntervalErrors.map((e) => e.message);
+      throw error;
+    }
+
+    const weeklyGrainErrors = [
+      ...validateWeeklyGrainOrder(modelJson, project),
+      ...validateWeekStartDay(project.variables?.week_start_day, modelJson),
+    ];
+    if (weeklyGrainErrors.length > 0) {
+      const error = new Error('Invalid weekly rollup configuration');
+      (error as Error & { details?: string[] }).details = weeklyGrainErrors.map(
+        (e) => e.message,
+      );
       throw error;
     }
 

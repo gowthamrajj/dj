@@ -32,6 +32,7 @@ import {
   validateExcludeDatetimeRollupConflict,
   validateRollupInterval,
   validateSubqueries,
+  validateWeeklyGrainOrder,
 } from '@services/modelValidation';
 import type {
   FrameworkModel,
@@ -290,6 +291,23 @@ export class ValidationService {
         valid: false,
         error: message,
         errors: cteRollupSelectErrors,
+        pathJson,
+      };
+    }
+
+    const weeklyGrainErrors = validateWeeklyGrainOrder(modelJson);
+    if (weeklyGrainErrors.length > 0) {
+      const message = `Model validation errors:\n${weeklyGrainErrors
+        .map((e) => e.message)
+        .join('\n')}`;
+      this.logger.error?.(
+        `Weekly grain order invalid for ${pathJson}:`,
+        message,
+      );
+      return {
+        valid: false,
+        error: message,
+        errors: weeklyGrainErrors,
         pathJson,
       };
     }

@@ -44,7 +44,7 @@
           },
           "expr": { "$ref": "column.expr.schema.json" },
           "interval": {
-            "enum": ["hour", "day", "month", "year"]
+            "enum": ["hour", "day", "week", "month", "year"]
           },
           "lightdash": { "$ref": "column.lightdash.schema.json" },
           "meta": { "$ref": "column.meta.schema.json" },

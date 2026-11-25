@@ -26,7 +26,7 @@ export const RollupNode: React.FC<NodeProps> = () => {
     modelingState.rollup?.dateExpression || '',
   );
 
-  const intervalOptions = ['Day', 'Hour', 'Month', 'Year'];
+  const intervalOptions = ['Day', 'Hour', 'Week', 'Month', 'Year'];
 
   const handleIntervalChange = useCallback(
     (value: string) => {
@@ -34,7 +34,13 @@ export const RollupNode: React.FC<NodeProps> = () => {
       // Update ModelStore directly
       updateRollupState({
         interval: value
-          ? (value.toLowerCase() as 'day' | 'hour' | 'month' | 'year' | '')
+          ? (value.toLowerCase() as
+              | 'day'
+              | 'hour'
+              | 'week'
+              | 'month'
+              | 'year'
+              | '')
           : '',
         dateExpression,
       });
@@ -51,6 +57,7 @@ export const RollupNode: React.FC<NodeProps> = () => {
           ? (selectedInterval.toLowerCase() as
               | 'day'
               | 'hour'
+              | 'week'
               | 'month'
               | 'year'
               | '')

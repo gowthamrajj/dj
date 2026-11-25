@@ -133,7 +133,7 @@ export type SchemaColumnDataTests = (
 
 export interface SchemaModelSelectInterval {
   description?: SchemaColumnDescription;
-  interval: 'day' | 'hour' | 'month' | 'year';
+  interval: 'day' | 'hour' | 'month' | 'week' | 'year';
   lightdash?: SchemaColumnLightdash;
   meta?: SchemaColumnMeta;
   model?: SchemaModelRef;

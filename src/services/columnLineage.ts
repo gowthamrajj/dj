@@ -5,6 +5,7 @@ import {
   frameworkBuildCteColumnRegistry,
   frameworkGetNodeColumns,
   frameworkGetSourceMeta,
+  frameworkWeekStartExpr,
 } from '@services/framework/utils';
 import type { DJService } from '@services/types';
 import { jsonParse } from '@shared';
@@ -16,6 +17,7 @@ import {
   BULK_MODEL_TYPES,
   BULK_SELECT_TYPES,
   type BulkSelectType,
+  PARTITION_WEEKLY,
 } from '@shared/framework/constants';
 import type { FrameworkColumn } from '@shared/framework/types';
 import type { FrameworkModel } from '@shared/framework/types';
@@ -1173,6 +1175,28 @@ export class ColumnLineageService implements DJService {
       // For models without select (like rollup models), all columns are passthrough from parent
       const parentModel = this.getDefaultParentModel(modelJson);
       if (parentModel) {
+        if (
+          columnName === PARTITION_WEEKLY &&
+          'rollup' in modelJson.from &&
+          modelJson.from.rollup?.interval === 'week'
+        ) {
+          const parentWeekly = frameworkGetNodeColumns({
+            from: { model: parentModel },
+            include: [PARTITION_WEEKLY],
+            project,
+            useCsvFallback: false,
+          }).columns[0];
+          if (!parentWeekly) {
+            return {
+              type: 'derived',
+              expression: frameworkWeekStartExpr('datetime', project, {
+                asDate: true,
+              }),
+              sourceColumns: ['datetime'],
+              sourceModels: [parentModel],
+            };
+          }
+        }
         return {
           type: 'passthrough',
           sourceColumns: [columnName],
@@ -1380,6 +1404,24 @@ export class ColumnLineageService implements DJService {
     );
     if (frameworkGenerated) {
       return frameworkGenerated;
+    }
+
+    if (
+      columnName === PARTITION_WEEKLY &&
+      'rollup' in modelJson.from &&
+      modelJson.from.rollup?.interval === 'week'
+    ) {
+      const parentModel = this.getDefaultParentModel(modelJson);
+      if (parentModel) {
+        return {
+          type: 'derived',
+          expression: frameworkWeekStartExpr('datetime', project, {
+            asDate: true,
+          }),
+          sourceColumns: ['datetime'],
+          sourceModels: [parentModel],
+        };
+      }
     }
 
     // Column doesn't exist in any parent - truly derived with no upstream

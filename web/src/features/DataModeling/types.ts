@@ -319,6 +319,7 @@ export const LIGHTDASH_TIME_INTERVALS = [
 export const INTERVAL_OPTIONS = [
   { value: 'day', label: 'Day' },
   { value: 'hour', label: 'Hour' },
+  { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'year', label: 'Year' },
 ] as const;

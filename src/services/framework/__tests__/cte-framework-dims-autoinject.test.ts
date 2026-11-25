@@ -24,7 +24,7 @@ import { createTestProject } from './helpers';
  */
 
 function projectWithDatetimeAndPartitions(
-  datetimeInterval: 'hour' | 'day' | 'month' | 'year' = 'hour',
+  datetimeInterval: 'hour' | 'day' | 'week' | 'month' | 'year' = 'hour',
 ) {
   return createTestProject({
     nodes: {
@@ -110,8 +110,8 @@ describe('CTE datetime + portal_partition_* auto-injection', () => {
   // `frameworkGetRollupInputs`.
   test.each<{
     label: string;
-    upstream: 'hour' | 'day' | 'month' | 'year';
-    cteDatetime?: { interval: 'day' | 'month' | 'year' };
+    upstream: 'hour' | 'day' | 'week' | 'month' | 'year';
+    cteDatetime?: { interval: 'day' | 'week' | 'month' | 'year' };
     expected: Record<'monthly' | 'daily' | 'hourly', boolean>;
   }>([
     {
@@ -119,6 +119,12 @@ describe('CTE datetime + portal_partition_* auto-injection', () => {
       upstream: 'hour',
       cteDatetime: { interval: 'day' },
       expected: { monthly: true, daily: true, hourly: false },
+    },
+    {
+      label: 'explicit CTE interval "week" drops daily + hourly',
+      upstream: 'hour',
+      cteDatetime: { interval: 'week' },
+      expected: { monthly: true, daily: false, hourly: false },
     },
     {
       label: 'explicit CTE interval "month" drops daily + hourly',

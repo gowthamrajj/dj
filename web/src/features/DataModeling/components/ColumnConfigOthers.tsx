@@ -36,7 +36,7 @@ interface DataTest {
 
 interface ColumnOthersConfig {
   exclude_from_group_by?: boolean;
-  interval?: 'day' | 'hour' | 'month' | 'year';
+  interval?: 'day' | 'hour' | 'week' | 'month' | 'year';
   override_prefix?: string;
   override_suffix_agg?: boolean;
   data_tests?: DataTest[];

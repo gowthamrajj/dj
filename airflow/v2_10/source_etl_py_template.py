@@ -24,6 +24,7 @@ from _ext_.utils import (
     SourceExtended,
     sql_dbt_source_dates_new,
     sql_dbt_source_dates_old,
+    week_start_for_date,
 )
 from _ext_.variables import (
     custom_failure_notifications,
@@ -62,6 +63,7 @@ from _ext_.variables import (
     vacuum_run_tasks,
     vacuum_run_limit,
     vacuum_run_timeout_minutes,
+    week_start_day,
 )
 
 
@@ -975,6 +977,7 @@ def source_etl_dag():
         event_dates = optimize_run["event_dates"]
         partition_column: str | None = None
         partition_dates: list[str] = []
+        partition_event_dates: dict[str, list[str]] = {}
         partition_daily_rows = trino_run(
             f"show columns from {model_name} like 'portal\_partition\_daily' escape '\\'"
         )
@@ -982,28 +985,63 @@ def source_etl_dag():
             log.info("Running optimize for daily partitioned model")
             partition_column = "portal_partition_daily"
             for event_date_iso in event_dates:
-                partition_dates.append(f"date '{event_date_iso}'")
+                partition_expr = f"date '{event_date_iso}'"
+                if partition_expr not in partition_event_dates:
+                    partition_dates.append(partition_expr)
+                    partition_event_dates[partition_expr] = []
+                partition_event_dates[partition_expr].append(f"date '{event_date_iso}'")
         else:
-            partition_monthly_rows = trino_run(
-                f"show columns from {model_name} like 'portal\_partition\_monthly' escape '\\'"
+            partition_weekly_rows = trino_run(
+                f"show columns from {model_name} like 'portal\_partition\_weekly' escape '\\'"
             )
-            if len(partition_monthly_rows) > 0:
-                log.info("Running optimize for monthly partitioned model")
-                partition_column = "portal_partition_monthly"
-                partitions_monthly: list[str] = []
-                for event_date_iso in optimize_run["event_dates"]:
+            if len(partition_weekly_rows) > 0:
+                log.info("Running optimize for weekly partitioned model")
+                partition_column = "portal_partition_weekly"
+                partitions_weekly: list[str] = []
+                for event_date_iso in event_dates:
                     event_date = date_from_iso(event_date_iso)
-                    event_date_month = event_date.replace(day=1)
-                    event_date_month_iso = date_to_iso(event_date_month)
-                    if event_date_month_iso not in partitions_monthly:
-                        partition_dates.append(f"date '{event_date_month_iso}'")
-                return
+                    event_date_week = week_start_for_date(event_date, week_start_day)
+                    event_date_week_iso = date_to_iso(event_date_week)
+                    partition_expr = f"date '{event_date_week_iso}'"
+                    if event_date_week_iso not in partitions_weekly:
+                        partitions_weekly.append(event_date_week_iso)
+                        partition_dates.append(partition_expr)
+                        partition_event_dates[partition_expr] = []
+                    partition_event_dates[partition_expr].append(
+                        f"date '{event_date_iso}'"
+                    )
+            else:
+                partition_monthly_rows = trino_run(
+                    f"show columns from {model_name} like 'portal\_partition\_monthly' escape '\\'"
+                )
+                if len(partition_monthly_rows) > 0:
+                    log.info("Running optimize for monthly partitioned model")
+                    partition_column = "portal_partition_monthly"
+                    partitions_monthly: list[str] = []
+                    for event_date_iso in event_dates:
+                        event_date = date_from_iso(event_date_iso)
+                        event_date_month = event_date.replace(day=1)
+                        event_date_month_iso = date_to_iso(event_date_month)
+                        partition_expr = f"date '{event_date_month_iso}'"
+                        if event_date_month_iso not in partitions_monthly:
+                            partitions_monthly.append(event_date_month_iso)
+                            partition_dates.append(partition_expr)
+                            partition_event_dates[partition_expr] = []
+                        partition_event_dates[partition_expr].append(
+                            f"date '{event_date_iso}'"
+                        )
 
         if partition_column and len(partition_dates) > 0:
             for partition_dates_chunk in chunk_list(
                 partition_dates, optimize_date_limit
             ):
                 in_dates = ", ".join(partition_dates_chunk)
+                covered_event_dates: list[str] = []
+                for partition_expr in partition_dates_chunk:
+                    for event_expr in partition_event_dates.get(partition_expr, []):
+                        if event_expr not in covered_event_dates:
+                            covered_event_dates.append(event_expr)
+                in_event_dates = ", ".join(covered_event_dates)
                 trino_run(
                     f"ALTER TABLE {model_name} EXECUTE OPTIMIZE(file_size_threshold => '{optimize_file_size_threshold}') WHERE {partition_column} IN ({in_dates})"
                 )
@@ -1011,7 +1049,7 @@ def source_etl_dag():
                     f"""
                     UPDATE {trino_catalog}.{etl_schema}.dbt_model_dates
                     SET optimize_timestamp = cast('{etl_timestamp}' as timestamp(6))
-                    WHERE model_id = '{model_id}' AND event_date IN ({in_dates})
+                    WHERE model_id = '{model_id}' AND event_date IN ({in_event_dates})
                     """
                 )
         else:

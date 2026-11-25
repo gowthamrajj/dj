@@ -100,7 +100,7 @@ Transforms data from a single upstream model. Supports optional `from.rollup` fo
     "model": "stg__my_group__my_topic__raw_data_conformed",
     // optional: re-aggregate to coarser time grain
     "rollup": {
-      "interval": "day", // "day", "hour", "month", "year"
+      "interval": "day", // "hour", "day", "week", "month", "year"
     },
   },
   "select": [
@@ -112,7 +112,7 @@ Transforms data from a single upstream model. Supports optional `from.rollup` fo
     },
     {
       "name": "datetime",
-      "interval": "day", // interval column: "day", "hour", "month", "year"
+      "interval": "day", // interval column: "hour", "day", "week", "month", "year"
     },
   ],
   "group_by": [
@@ -139,7 +139,7 @@ Joins a primary model with one or more additional models. Supports optional `fro
     "model": "int__my_group__my_topic__daily_summary",
     // optional: re-aggregate to coarser time grain
     "rollup": {
-      "interval": "day", // "day", "hour", "month", "year"
+      "interval": "day", // "hour", "day", "week", "month", "year"
     },
     "join": [
       {
@@ -213,7 +213,7 @@ Aggregates data to a coarser time interval.
   "from": {
     "model": "int__my_group__my_topic__hourly_summary",
     "rollup": {
-      "interval": "day", // "day", "hour", "month", "year"
+      "interval": "day", // "hour", "day", "week", "month", "year"
     },
   },
 }
@@ -283,8 +283,8 @@ For **`int_select_model`**, **`int_join_models`**, **`int_union_models`**, **`ma
 
 - **CTEs**: Optional ordered **`ctes`**. **`model.ctes.schema.json`**, **`model.cte.schema.json`**. Authoring rules and gotchas: [ctes-and-subqueries.md](ctes-and-subqueries.md).
 - **`from`**: Each type’s **`from`** **`anyOf`** lists legal combinations (**`model`**, **`cte`**, **`join`**, optional **`rollup`** on **`int_*` select/join only** — not on marts).
-- **Rollup on select/join**: Optional **`rollup`** on **`from.model`** for **`int_select_model`** and **`int_join_models`** only (not marts). Requires the upstream to expose a select column with an **`interval`** field (e.g. **`{ "name": "datetime", "interval": "day" }`**). Keeps a normal **`select`** / join; coarser **`interval`** triggers **re-aggregation** of declarative **`agg`/`aggs`**. **`model.from.rollup.schema.json`**. For **`group_by` / `agg` / `expr`** rules see `.agents/dj/AGENTS.md` **Important Conventions** (#9–#10).
-- **Rollup inside a CTE**: Optional **`rollup`** on a CTE's **`from.model`** or **`from.cte`** (not **`from.source`**, not **`from.union`**). Re-aggregates that CTE's source to a coarser grain — same DATE_TRUNC + suffix-agg + GROUP BY behavior as the model-level rollup, but scoped to one stage of the pipeline. Available on every CTE-supporting model type. **`exclude_datetime`** / **`exclude_framework_artifacts`** at the same scope is rejected as a conflict; chained rollups (e.g. month CTE feeding a year CTE) work end-to-end.
+- **Rollup on select/join**: Optional **`rollup`** on **`from.model`** for **`int_select_model`** and **`int_join_models`** only (not marts). Accepts **`"hour" | "day" | "week" | "month" | "year"`** (grain order coarsest to finest: `year`, `month`, `week`, `day`, `hour`; rolling up from a coarser grain like `month` into `week` is rejected). **`week`** synthesizes **`portal_partition_weekly`** (`date`), keeps **`portal_partition_monthly`**, clips **`datetime`** at month boundaries so downstream **`month`** rollups stay exact, and honors **`vars.week_start_day`** in `dbt_project.yml` (default **`"monday"`**). Requires the upstream to expose a select column with an **`interval`** field (e.g. **`{ "name": "datetime", "interval": "day" }`**). Keeps a normal **`select`** / join; coarser **`interval`** triggers **re-aggregation** of declarative **`agg`/`aggs`**. **`model.from.rollup.schema.json`**. For **`group_by` / `agg` / `expr`** rules see `.agents/dj/AGENTS.md` **Important Conventions** (#9–#10).
+- **Rollup inside a CTE**: Optional **`rollup`** on a CTE's **`from.model`** or **`from.cte`** (not **`from.source`**, not **`from.union`**). Re-aggregates that CTE's source to a coarser grain (`hour`, `day`, `week`, `month`, `year`) — same truncation/clipping + suffix-agg + GROUP BY behavior as the model-level rollup, but scoped to one stage of the pipeline. Available on every CTE-supporting model type. **`exclude_datetime`** / **`exclude_framework_artifacts`** at the same scope is rejected as a conflict; chained rollups (e.g. `week` CTE feeding a `month` CTE, or `month` feeding `year`) work end-to-end.
 - **Shorthands & CTE columns**: **`dims_from_*`**, **`fcts_from_*`**, **`all_from_*`** and explicit CTE column objects — **`model.select.model.schema.json`**, **`model.select.cte.schema.json`**, related **`model.select.*`**. CTE bulk selects support **`exclude`/`include`** filters and **inherit dim/fct types** from upstream.
 - **`where` / `having`**: Nested **`subquery`** — **`model.subquery.schema.json`**. See [ctes-and-subqueries.md](ctes-and-subqueries.md).
 - **`"dims"` shorthand**: **`group_by: "dims"`** equivalent to **`[{ "type": "dims" }]`**; join **`on: "dims"`** auto-joins on all shared dimension columns — **`model.group_by.schema.json`**.
@@ -409,7 +409,7 @@ Named column from a CTE:
 ```jsonc
 {
   "name": "datetime",
-  "interval": "day", // "day", "hour", "month", "year"
+  "interval": "day", // "hour", "day", "week", "month", "year"
 }
 ```
 

@@ -38,6 +38,7 @@ An `int_select_model` requires the following configuration parameters:
 - **`materialized`:** Either `ephemeral` or `incremental`
 - **`from`:** Specifies the source model:
   - **`model`:** Reference to an existing dbt model (string identifier)
+  - **`rollup`:** Optional time-grain re-aggregation (`{ "interval": "hour" | "day" | "week" | "month" | "year" }`). `"week"` synthesizes `portal_partition_weekly`, clips `datetime` at month boundaries so downstream `"month"` rollups remain exact, and honors `vars.week_start_day` in `dbt_project.yml` (default `"monday"`).
 - **`select`:** Array of column definitions with support for aggregations
 - **`where`:** Optional filtering conditions
 - **`group_by`:** Optional grouping specifications for aggregations
